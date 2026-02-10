@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LIFE RPG – Hardcore Tower Mode</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div>
+        <h1>LIFE RPG – HARDCORE TOWER MODE</h1>
+        <div class="sub">공부 시간을 타워 RPG로 변환</div>
+      </div>
+      <div class="btns">
+        <button id="wakeBtn">일어났어 (Day+)</button>
+        <button id="endDayBtn">오늘 공부 끝</button>
+        <button id="resetBtn" class="danger">초기화(주의)</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel">
+        <h2>상태</h2>
+        <div id="stats" class="stats"></div>
+
+        <h2>공부 입력</h2>
+        <div class="form">
+          <label>과목</label>
+          <input id="subjectInput" placeholder="예: 화학2, 물리1" />
+          <label>시간(분)</label>
+          <input id="minutesInput" type="number" min="1" placeholder="예: 45" />
+          <button id="addStudyBtn">추가</button>
+        </div>
+
+        <div id="lastDrop" class="drop"></div>
+      </section>
+
+      <section class="panel canvasPanel">
+        <h2>타워</h2>
+        <canvas id="gameCanvas" width="520" height="520"></canvas>
+      </section>
+
+      <section class="panel">
+        <h2>로그</h2>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
