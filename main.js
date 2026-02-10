@@ -1,8 +1,8 @@
-const STORAGE_KEY = "life_rpg_hardcore_v11";
+const STORAGE_KEY = "life_rpg_hardcore_v12";
 
+function p2(n){ return String(n).padStart(2,"0"); }
 function nowStamp() {
   const d = new Date();
-  const p2 = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
 }
 
@@ -15,29 +15,28 @@ function defaultState() {
     gold: 187,
     floor: 20,
     battleCount: 9,
-    totalMinutes: 1251,
-    reward: { active: false, type: null, label: null, url: null, endsAtMs: 0 },
-    block: { active: false, label: null, endedAtMs: 0 },
-    buffs: { nextGachaBoost: 0 },
-    logs: [{ time: nowStamp(), title: "초기 상태 로드", msg: "Day 1~2 완료 / Day 3 대기" }],
+    totalSeconds: 1251 * 60,
+    reward: { active:false, label:null, url:null, endsAtMs:0 },
+    block: { active:false, label:null, endedAtMs:0 },
+    logs: [{ time: nowStamp(), title: "초기 상태 로드", msg: "v1.2: 테스트 1분 + 시/분/초 입력 + 픽셀 타워/슬라임" }],
     subjects: {},
-    boss: { shown21: false, defeated21: false }
+    boss: { shown21:false, defeated21:false },
   };
 }
 
-function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function load() {
+function save(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+function load(){
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return defaultState();
+  if(!raw) return defaultState();
   try { return JSON.parse(raw); } catch { return defaultState(); }
 }
 
-function pushLog(state, title, msg) {
-  state.logs.unshift({ time: nowStamp(), title, msg });
-  if (state.logs.length > 250) state.logs.pop();
+function pushLog(s, title, msg){
+  s.logs.unshift({ time: nowStamp(), title, msg });
+  if(s.logs.length > 250) s.logs.pop();
 }
 
-function calcLevel(xp) {
+function calcLevel(xp){
   if (xp >= 4000) return 5;
   if (xp >= 3000) return 4;
   if (xp >= 2000) return 3;
@@ -45,147 +44,93 @@ function calcLevel(xp) {
   return 1;
 }
 
-function floorEvents(floor) {
+function floorEvents(f){
   const map = {
     4: "각성층: 보너스 XP + 스탯 상승(연출)",
     7: "선택 이벤트층: XP 부스트 or 체력 회복(연출)",
-    13: "금기층: 슬라임 분열, 희귀 드랍 확정(연출)",
-    21: "중간 보스층: 거대 슬라임, 레벨업 확정(연출)",
-    33: "멘탈 시험층: 랜덤 버프/디버프(연출)",
+    13:"금기층: 슬라임 분열, 희귀 드랍 확정(연출)",
+    21:"중간 보스층: 거대 슬라임, 레벨업 확정(연출)",
+    33:"멘탈 시험층: 랜덤 버프/디버프(연출)",
   };
-  return map[floor] || null;
+  return map[f] || null;
 }
 
-function rollGacha(state) {
-  let rates = { common: 60, rare: 25, epic: 12, legendary: 3 };
-  if (state.buffs.nextGachaBoost > 0) {
-    rates = { common: 50, rare: 30, epic: 15, legendary: 5 };
-    state.buffs.nextGachaBoost = 0;
-  }
-
-  const r = Math.random() * 100;
-  let grade = "Common";
-  if (r < rates.legendary) grade = "Legendary";
-  else if (r < rates.legendary + rates.epic) grade = "Epic";
-  else if (r < rates.legendary + rates.epic + rates.rare) grade = "Rare";
-
-  const pool = {
-    Common: [
-      { name: "잔돈 주머니", type: "goldBonus", v: 3 },
-      { name: "미세 집중", type: "xpMult", v: 1.05 },
-    ],
-    Rare: [
-      { name: "보너스 지갑", type: "goldBonus", v: 10 },
-      { name: "집중 부스터", type: "xpMult", v: 1.15 },
-      { name: "드랍 부적", type: "nextGachaBoost", v: 1 },
-    ],
-    Epic: [
-      { name: "황금 상자", type: "goldBonus", v: 25 },
-      { name: "고농축 XP", type: "xpMult", v: 1.35 },
-      { name: "드랍 부적+", type: "nextGachaBoost", v: 1 },
-    ],
-    Legendary: [
-      { name: "왕의 금고", type: "goldBonus", v: 60 },
-      { name: "각성의 룬", type: "xpMult", v: 1.75 },
-      { name: "운명의 부적", type: "nextGachaBoost", v: 1 },
-    ],
-  };
-
-  const item = pool[grade][Math.floor(Math.random() * pool[grade].length)];
-  return { grade, item };
+function formatHMS(seconds){
+  const s = Math.max(0, Math.floor(seconds));
+  const hh = Math.floor(s/3600);
+  const mm = Math.floor((s%3600)/60);
+  const ss = s%60;
+  return `${hh}시간 ${mm}분 ${ss}초`;
 }
 
-function addStudy(state, subject, minutes) {
-  if (!Number.isFinite(minutes) || minutes <= 0) return { ok:false, error:"시간(분)은 1 이상이어야 해." };
+function addStudySeconds(state, subject, seconds){
+  if(!Number.isFinite(seconds) || seconds <= 0) return { ok:false, error:"시간은 1초 이상이어야 해." };
   subject = (subject || "").trim() || "미분류";
 
-  if (state.dayStatus !== "ACTIVE") {
-    pushLog(state, "⚠️ Day가 시작되지 않음", `"일어났어"로 Day를 시작하는 걸 추천 (현재 Day ${state.day})`);
+  if(state.dayStatus !== "ACTIVE"){
+    pushLog(state, "⚠️ Day가 시작되지 않음", `"일어났어"로 Day 시작 추천 (현재 Day ${state.day})`);
   }
 
-  const g = rollGacha(state);
-  const baseXP = minutes;
-  const baseGold = Math.floor(minutes / 10);
-  let xpGain = baseXP;
-  let goldGain = baseGold;
+  const minutes = Math.floor(seconds/60);
+  const xpGain = minutes;
+  const goldGain = Math.floor(minutes/10);
+  const floorsUp = Math.floor(minutes/10);
 
-  if (g.item.type === "xpMult") xpGain = Math.floor(xpGain * g.item.v);
-  if (g.item.type === "goldBonus") goldGain += g.item.v;
-  if (g.item.type === "nextGachaBoost") state.buffs.nextGachaBoost += g.item.v;
-
-  state.totalMinutes += minutes;
+  state.totalSeconds += seconds;
   state.xp += xpGain;
   state.gold += goldGain;
-  state.subjects[subject] = (state.subjects[subject] || 0) + minutes;
 
-  const floorsUp = Math.floor(minutes / 10);
   const startFloor = state.floor;
   state.floor += floorsUp;
-
   state.battleCount += 1;
-  const newLevel = calcLevel(state.xp);
-  const leveledUp = newLevel > state.level;
-  state.level = newLevel;
+  state.level = calcLevel(state.xp);
 
-  for (let f = startFloor + 1; f <= state.floor; f++) {
+  state.subjects[subject] = (state.subjects[subject] || 0) + seconds;
+
+  for(let f=startFloor+1; f<=state.floor; f++){
     const ev = floorEvents(f);
-    if (ev) pushLog(state, `🌟 특수층 도달: ${f}F`, ev);
-  }
-  if (leveledUp) pushLog(state, "⬆️ 레벨업!", `Level ${newLevel} 달성 (XP: ${state.xp})`);
-
-  pushLog(state, `📚 공부 추가: ${subject} ${minutes}분`, `+XP ${xpGain} / +G ${goldGain} / +${floorsUp}F / 가챠: ${g.grade} – ${g.item.name}`);
-  return { ok:true, gacha:g, xpGain, goldGain, floorsUp };
-}
-
-/* ===== Canvas ===== */
-function roundRect(ctx, x, y, w, h, r){
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.arcTo(x+w, y, x+w, y+h, r);
-  ctx.arcTo(x+w, y+h, x, y+h, r);
-  ctx.arcTo(x, y+h, x, y, r);
-  ctx.arcTo(x, y, x+w, y, r);
-  ctx.closePath();
-}
-function renderCanvas(ctx, state, anim) {
-  const W = ctx.canvas.width, H = ctx.canvas.height;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = "#0f1426";
-  ctx.fillRect(0,0,W,H);
-
-  const towerX = 60, towerY = 60, towerW = 140, towerH = 400;
-  ctx.fillStyle = "#1c2750";
-  ctx.fillRect(towerX, towerY, towerW, towerH);
-
-  ctx.fillStyle = "rgba(255,255,255,.18)";
-  const floorsToDraw = 20;
-  const step = towerH / floorsToDraw;
-  for (let i=0;i<=floorsToDraw;i++){
-    const y = towerY + i*step;
-    ctx.fillRect(towerX, y, towerW, 1);
+    if(ev) pushLog(state, `🌟 특수층 도달: ${f}F`, ev);
   }
 
-  ctx.fillStyle = "#3a4cff";
-  const markerY = towerY + towerH - ((state.floor % floorsToDraw) * step);
-  ctx.fillRect(towerX-8, markerY-6, 8, 12);
-
-  ctx.fillStyle = "rgba(255,255,255,.9)";
-  ctx.font = "18px system-ui";
-  ctx.fillText(`${state.floor}F`, towerX+10, towerY+26);
-
-  const sx = 330, sy = 300;
-  const wobble = Math.sin(anim.t/120) * 6;
-  const hurt = anim.hurt > 0 ? (Math.sin(anim.t/30) * 8) : 0;
-
-  ctx.fillStyle = anim.hurt > 0 ? "#ff3a66" : "#62ffb6";
-  roundRect(ctx, sx + hurt, sy + wobble, 130, 110, 18);
-  ctx.fill();
+  pushLog(state, `📚 공부 추가: ${subject}`, `${formatHMS(seconds)} → +XP ${xpGain} / +G ${goldGain} / +${floorsUp}F`);
+  return { ok:true, xpGain, goldGain, floorsUp };
 }
 
+/* ===== Reward / Block ===== */
+const SHOP = {
+  YT30:   { price:100, label:"유튜브 30분", minutes:30, url:"https://www.youtube.com" },
+  DESSERT:{ price:80,  label:"디저트",     minutes:20, url:null },
+  WALK:   { price:50,  label:"산책",       minutes:20, url:null },
+  TEST1:  { price:0,   label:"테스트 1분", minutes:1,  url:null },
+};
+
+function activateBlockAndRedirect(state, label){
+  state.block = { active:true, label: label || "-", endedAtMs: Date.now() };
+  save(state);
+  location.replace("blocked.html");
+}
+
+function msToMMSS(ms){
+  const s = Math.max(0, Math.floor(ms/1000));
+  return `${p2(Math.floor(s/60))}:${p2(s%60)}`;
+}
+
+function tickReward(state, $rewardTime){
+  if(!state.reward.active) return;
+  const left = state.reward.endsAtMs - Date.now();
+  $rewardTime.textContent = msToMMSS(left);
+  if(left <= 0){
+    const label = state.reward.label;
+    pushLog(state, "⏰ 보상 시간 종료", `${label} 종료 → 차단 페이지 이동`);
+    state.reward = { active:false, label:null, url:null, endsAtMs:0 };
+    save(state);
+    activateBlockAndRedirect(state, label);
+  }
+}
+
+/* ===== UI ===== */
 const state = load();
-
-// If blocked, force redirect
-if (state.block && state.block.active) location.replace("blocked.html");
+if(state.block && state.block.active) location.replace("blocked.html");
 
 const $stats = document.getElementById("stats");
 const $log = document.getElementById("log");
@@ -197,9 +142,10 @@ const $resetBtn = document.getElementById("resetBtn");
 const $shopBtn = document.getElementById("shopBtn");
 
 const $subjectInput = document.getElementById("subjectInput");
+const $hoursInput = document.getElementById("hoursInput");
 const $minutesInput = document.getElementById("minutesInput");
-
-const ctx = document.getElementById("gameCanvas").getContext("2d");
+const $secondsInput = document.getElementById("secondsInput");
+const $addStudyBtn = document.getElementById("addStudyBtn");
 
 const $shopOverlay = document.getElementById("shopOverlay");
 const $closeShopBtn = document.getElementById("closeShopBtn");
@@ -215,34 +161,22 @@ const $stopRewardBtn = document.getElementById("stopRewardBtn");
 const $bossOverlay = document.getElementById("bossOverlay");
 const $bossFightBtn = document.getElementById("bossFightBtn");
 
-let anim = { t:0, hp:1, hurt:0, toast:"", toastTime:0 };
-function toast(msg) { anim.toast = msg; anim.toastTime = 180; }
+function openOverlay(el){ el.classList.remove("hidden"); }
+function closeOverlay(el){ el.classList.add("hidden"); }
 
-function formatHM(totalMinutes){
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return `${h}시간 ${m}분`;
-}
-
-function renderStats() {
-  const nextLevelXP =
-    state.level === 1 ? 1000 :
-    state.level === 2 ? 2000 :
-    state.level === 3 ? 3000 :
-    state.level === 4 ? 4000 : 5000;
-
-  const remain = Math.max(0, nextLevelXP - state.xp);
-  const rewardText = state.reward.active ? `진행중: ${state.reward.label}` : "없음";
+function renderStats(){
+  const totalMin = Math.floor(state.totalSeconds/60);
+  const totalText = `${formatHMS(state.totalSeconds)} (${totalMin}분 기준 XP/Gold 계산)`;
 
   const items = [
     ["Day", `Day ${state.day} (${state.dayStatus})`],
     ["Level", `Lv.${state.level}`],
-    ["XP", `${state.xp} (다음까지 ${remain})`],
+    ["XP", `${state.xp}`],
     ["Gold", `${state.gold}G`],
     ["Tower", `${state.floor}F`],
     ["Battle", `${state.battleCount}회`],
-    ["누적 공부", `${formatHM(state.totalMinutes)} (${state.totalMinutes}분)`],
-    ["보상 모드", rewardText],
+    ["누적 공부", totalText],
+    ["보상 모드", state.reward.active ? `진행중: ${state.reward.label}` : "없음"],
   ];
 
   $stats.innerHTML = items.map(([k,v]) => `
@@ -250,8 +184,8 @@ function renderStats() {
   `).join("");
 }
 
-function renderLogs() {
-  $log.innerHTML = state.logs.slice(0, 70).map(l => `
+function renderLogs(){
+  $log.innerHTML = state.logs.slice(0,70).map(l => `
     <div class="logItem">
       <div class="t">${l.title}</div>
       <div class="m">${l.msg}</div>
@@ -260,87 +194,57 @@ function renderLogs() {
   `).join("");
 }
 
-function setDropText(gacha) {
-  if (!gacha) { $lastDrop.textContent = "최근 가챠 결과 없음"; return; }
-  $lastDrop.innerHTML = `<b>가챠:</b> ${gacha.grade} – ${gacha.item.name}`;
+function setDropText(text){
+  $lastDrop.innerHTML = text || "최근 드랍 없음";
 }
 
-/* Shop / Reward */
-const SHOP = {
-  YT30: { price: 100, label: "유튜브 30분", minutes: 30, url: "https://www.youtube.com" },
-  DESSERT: { price: 80, label: "디저트", minutes: 20, url: null },
-  WALK: { price: 50, label: "산책", minutes: 20, url: null },
-};
-
-function openOverlay(el){ el.classList.remove("hidden"); }
-function closeOverlay(el){ el.classList.add("hidden"); }
-
+/* Shop actions */
 function startReward(sku){
   const item = SHOP[sku];
-  if (!item) return;
-  if (state.reward.active) return toast("보상 모드 진행중");
-  if (state.gold < item.price) return toast("골드 부족");
+  if(!item) return;
+
+  if(state.reward.active){
+    setDropText("보상 모드 진행중");
+    return;
+  }
+  if(state.gold < item.price){
+    pushLog(state, "💸 골드 부족", `${item.label} 구매 실패 (필요 ${item.price}G)`);
+    save(state);
+    renderLogs();
+    setDropText("골드 부족");
+    return;
+  }
 
   state.gold -= item.price;
-  state.reward = { active:true, type: sku, label:item.label, url:item.url, endsAtMs: Date.now() + item.minutes*60*1000 };
+  state.reward = { active:true, label:item.label, url:item.url, endsAtMs: Date.now() + item.minutes*60*1000 };
   pushLog(state, "🛒 상점 구매", `${item.label} (-${item.price}G) / ${item.minutes}분 시작`);
   save(state);
   renderStats(); renderLogs();
-  showRewardOverlay();
-}
 
-function msToMMSS(ms){
-  const sec = Math.max(0, Math.floor(ms/1000));
-  const mm = String(Math.floor(sec/60)).padStart(2,"0");
-  const ss = String(sec%60).padStart(2,"0");
-  return `${mm}:${ss}`;
-}
-
-function showRewardOverlay(){
-  if(!state.reward.active) return;
-  $rewardName.textContent = state.reward.label;
+  $rewardName.textContent = item.label;
+  $rewardTime.textContent = msToMMSS(item.minutes*60*1000);
   openOverlay($rewardOverlay);
-}
-
-function activateBlock(label){
-  state.block = { active:true, label: label || "-", endedAtMs: Date.now() };
-  save(state);
-  location.replace("blocked.html");
-}
-
-function tickReward(){
-  if(!state.reward.active) return;
-  const left = state.reward.endsAtMs - Date.now();
-  $rewardTime.textContent = msToMMSS(left);
-  if(left <= 0){
-    const label = state.reward.label;
-    pushLog(state, "⏰ 보상 시간 종료", `${label} 종료 → 차단 페이지 이동`);
-    state.reward = { active:false, type:null, label:null, url:null, endsAtMs:0 };
-    save(state);
-    renderStats(); renderLogs();
-    activateBlock(label);
-  }
 }
 
 function stopReward(){
   if(!state.reward.active) return;
   pushLog(state, "⏹ 보상 종료", `${state.reward.label} 종료(사용자)`);
-  state.reward = { active:false, type:null, label:null, url:null, endsAtMs:0 };
+  state.reward = { active:false, label:null, url:null, endsAtMs:0 };
   save(state);
   renderStats(); renderLogs();
   closeOverlay($rewardOverlay);
 }
 
-/* Boss 21F (간단) */
+/* Boss 21F */
 function maybeShowBoss21(){
-  if (state.floor >= 21 && !state.boss.shown21 && !state.boss.defeated21) {
+  if(state.floor >= 21 && !state.boss.shown21 && !state.boss.defeated21){
     state.boss.shown21 = true;
     save(state);
     openOverlay($bossOverlay);
   }
 }
 function defeatBoss21(){
-  if (state.boss.defeated21) return;
+  if(state.boss.defeated21) return;
   state.boss.defeated21 = true;
   pushLog(state, "👑 21F 보스 처치!", "XP +500");
   state.xp += 500;
@@ -348,12 +252,12 @@ function defeatBoss21(){
   save(state);
   renderStats(); renderLogs();
   closeOverlay($bossOverlay);
-  toast("보스 격파!");
+  setDropText("보스 격파!");
 }
 
 /* Buttons */
 $wakeBtn.onclick = () => {
-  if (state.reward.active) return toast("보상 모드 중");
+  if(state.reward.active) return setDropText("보상 모드 중");
   state.day += 1;
   state.dayStatus = "ACTIVE";
   pushLog(state, "🌅 Day 시작", `Day ${state.day} 시작`);
@@ -362,7 +266,7 @@ $wakeBtn.onclick = () => {
 };
 
 $endDayBtn.onclick = () => {
-  if (state.reward.active) return toast("보상 모드 중");
+  if(state.reward.active) return setDropText("보상 모드 중");
   state.dayStatus = "COMPLETED";
   pushLog(state, "✅ Day 마감", `Day ${state.day} 종료`);
   save(state);
@@ -370,28 +274,34 @@ $endDayBtn.onclick = () => {
 };
 
 $resetBtn.onclick = () => {
-  if (!confirm("정말 초기화할까요?")) return;
+  if(!confirm("정말 초기화할까요? (저장된 모든 진행이 삭제됩니다)")) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState()));
   location.href = "index.html";
 };
 
-document.getElementById("addStudyBtn").onclick = () => {
-  if (state.reward.active) return toast("보상 모드 중");
-  const subject = $subjectInput.value;
-  const minutes = Number($minutesInput.value);
-  const res = addStudy(state, subject, minutes);
-  if (!res.ok) return alert(res.error);
+$addStudyBtn.onclick = () => {
+  if(state.reward.active) return setDropText("보상 모드 중");
 
-  setDropText(res.gacha);
+  const h = Number($hoursInput.value || 0);
+  const m = Number($minutesInput.value || 0);
+  const s = Number($secondsInput.value || 0);
+  const total = (h*3600) + (m*60) + s;
+
+  const subject = $subjectInput.value;
+  const res = addStudySeconds(state, subject, total);
+  if(!res.ok) return alert(res.error);
+
   save(state);
   renderStats(); renderLogs();
+
   $minutesInput.value = "";
+  $secondsInput.value = "";
   maybeShowBoss21();
 };
 
 $shopBtn.onclick = () => {
-  if (state.reward.active) return showRewardOverlay();
-  $shopInfo.textContent = `현재 Gold: ${state.gold}G`;
+  if(state.reward.active){ openOverlay($rewardOverlay); return; }
+  $shopInfo.textContent = `현재 Gold: ${state.gold}G / 테스트 1분은 0G`;
   openOverlay($shopOverlay);
 };
 $closeShopBtn.onclick = () => closeOverlay($shopOverlay);
@@ -407,21 +317,135 @@ $closeRewardBtn.onclick = () => closeOverlay($rewardOverlay);
 $openRewardSiteBtn.onclick = () => {
   if(!state.reward.active) return;
   if(state.reward.url) window.open(state.reward.url, "_blank", "noopener,noreferrer");
+  pushLog(state, "🔗 보상 사이트 열기", state.reward.url ? state.reward.url : "외부 링크 없음");
+  save(state);
+  renderLogs();
 };
 $stopRewardBtn.onclick = stopReward;
 
 $bossFightBtn.onclick = defeatBoss21;
 
-function tick(){
-  anim.t += 1;
-  tickReward();
-  renderCanvas(ctx, state, anim);
-  requestAnimationFrame(tick);
+/* ===== Pixel Canvas Rendering (procedural) ===== */
+const ctx = document.getElementById("gameCanvas").getContext("2d");
+const PX = 4;
+const GW = 520 / PX;
+const GH = 520 / PX;
+
+function drawPixel(x,y,color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x*PX, y*PX, PX, PX);
 }
 
+function drawCircle(cx, cy, r, palette){
+  for(let y=-r; y<=r; y++){
+    for(let x=-r; x<=r; x++){
+      const d = x*x + y*y;
+      if(d <= r*r){
+        const t = (x + y) / (2*r);
+        const idx = t < -0.2 ? 0 : t < 0.2 ? 1 : 2;
+        drawPixel(cx+x, cy+y, palette[Math.max(0, Math.min(2, idx))]);
+      }
+    }
+  }
+}
+
+function drawStarfield(){
+  for(let y=0; y<GH; y++){
+    for(let x=0; x<GW; x++){
+      const g = Math.floor(10 + (y/GH)*10);
+      drawPixel(x,y, `rgb(${6+g},${3+g},${18+g})`);
+    }
+  }
+  // stars
+  for(let i=0;i<260;i++){
+    const x = (i*73) % GW;
+    const y = (i*91) % GH;
+    const b = 180 + (i % 70);
+    drawPixel(x,y, `rgb(${b},${b},${b})`);
+    if(i%7===0 && x+1<GW) drawPixel(x+1,y, `rgb(${b-30},${b-30},${b-30})`);
+  }
+  // planets (original procedural)
+  const planets = [
+    {x:12, y:20, r:9,  p:["#ffb65c","#e0882f","#b55a18"]},
+    {x:48, y:18, r:8,  p:["#bfe6ff","#7bb7ff","#3f78d7"]},
+    {x:78, y:34, r:7,  p:["#ffd2d2","#d996a7","#a45d6f"]},
+    {x:20, y:82, r:10, p:["#c9c9cf","#8e8ea1","#5c5c73"]},
+    {x:82, y:84, r:9,  p:["#ffdb7a","#d8a94d","#a36c2d"]},
+  ];
+  for(const pl of planets) drawCircle(pl.x, pl.y, pl.r, pl.p);
+
+  drawCircle(62, 64, 8, ["#ffe2a0","#d4a86a","#a8743d"]);
+  for(let x=-12; x<=12; x++){
+    if(Math.abs(x) < 2) continue;
+    drawPixel(62+x, 64, "#c9b38a");
+    drawPixel(62+x, 65, "#9c8762");
+  }
+}
+
+function drawTower(floor){
+  const tx = 14, ty = 34, tw = 18, th = 84;
+  for(let y=0;y<th;y++){
+    for(let x=0;x<tw;x++){
+      const edge = x==0||x==tw-1||y==0||y==th-1;
+      drawPixel(tx+x, ty+y, edge ? "#2a3a75" : "#1b2552");
+    }
+  }
+  const floorsToDraw = 20;
+  const step = Math.floor(th / floorsToDraw);
+  for(let i=0;i<floorsToDraw;i++){
+    const y = ty + th - 2 - i*step;
+    for(let x=2; x<tw-2; x++) drawPixel(tx+x, y, "rgba(255,255,255,0.10)");
+  }
+  const marker = floor % floorsToDraw;
+  const my = ty + th - 2 - marker*step;
+  for(let k=0;k<3;k++){
+    drawPixel(tx-2, my-k, "#3a4cff");
+    drawPixel(tx-3, my-k, "#91a0ff");
+  }
+  for(let x=0;x<tw;x++) drawPixel(tx+x, ty-1, "#3a4cff");
+}
+
+function drawSlime(animT){
+  const sx = 62, sy = 104;
+  const wob = Math.round(Math.sin(animT/18)*2);
+  const body = ["#62ffb6","#29d897","#10946c"];
+  for(let y=-10; y<=10; y++){
+    for(let x=-12; x<=12; x++){
+      const d = (x*x)/144 + (y*y)/100;
+      if(d <= 1){
+        const idx = y < -3 ? 0 : y < 4 ? 1 : 2;
+        drawPixel(sx+x, sy+y+wob, body[idx]);
+      }
+    }
+  }
+  drawPixel(sx-5, sy-2+wob, "#0b0f1a"); drawPixel(sx-6, sy-2+wob, "#0b0f1a");
+  drawPixel(sx+5, sy-2+wob, "#0b0f1a"); drawPixel(sx+6, sy-2+wob, "#0b0f1a");
+  drawPixel(sx-8, sy-6+wob, "rgba(255,255,255,0.35)");
+  drawPixel(sx-7, sy-7+wob, "rgba(255,255,255,0.25)");
+}
+
+function renderCanvas(t){
+  drawStarfield();
+  drawTower(state.floor);
+  drawSlime(t);
+
+  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.font = "16px system-ui";
+  ctx.fillText(`${state.floor}F`, 14*PX, 26*PX);
+}
+
+let t = 0;
+function loop(){
+  t++;
+  tickReward(state, $rewardTime);
+  renderCanvas(t);
+  requestAnimationFrame(loop);
+}
+
+/* Init */
 renderStats();
 renderLogs();
-setDropText(null);
-if(state.reward.active) showRewardOverlay();
+setDropText("v1.2 적용됨: 테스트 1분 + 시/분/초 입력 + 픽셀 타워/슬라임");
+if(state.reward.active){ $rewardName.textContent = state.reward.label; openOverlay($rewardOverlay); }
 maybeShowBoss21();
-tick();
+loop();

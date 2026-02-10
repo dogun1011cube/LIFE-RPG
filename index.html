@@ -30,8 +30,23 @@
         <div class="form">
           <label>과목</label>
           <input id="subjectInput" placeholder="예: 화학2, 물리1, KJSO" />
-          <label>시간(분)</label>
-          <input id="minutesInput" type="number" min="1" step="1" placeholder="예: 45" />
+
+          <label>시간 입력</label>
+          <div class="hms">
+            <div class="hmsItem">
+              <div class="hmsLabel">시간</div>
+              <input id="hoursInput" type="number" min="0" step="1" placeholder="0" />
+            </div>
+            <div class="hmsItem">
+              <div class="hmsLabel">분</div>
+              <input id="minutesInput" type="number" min="0" step="1" placeholder="0" />
+            </div>
+            <div class="hmsItem">
+              <div class="hmsLabel">초</div>
+              <input id="secondsInput" type="number" min="0" step="1" placeholder="0" />
+            </div>
+          </div>
+
           <button id="addStudyBtn">추가</button>
         </div>
 
@@ -51,7 +66,6 @@
     </main>
   </div>
 
-  <!-- SHOP OVERLAY -->
   <div id="shopOverlay" class="overlay hidden" aria-hidden="true">
     <div class="modal">
       <div class="modalTop">
@@ -78,13 +92,18 @@
           <div class="siDesc">몸/멘탈 리셋</div>
           <div class="siPrice">50G</div>
         </button>
+
+        <button class="shopItem test" data-sku="TEST1">
+          <div class="siTitle">테스트 1분</div>
+          <div class="siDesc">차단 이동 테스트용</div>
+          <div class="siPrice">0G</div>
+        </button>
       </div>
 
       <div class="shopInfo" id="shopInfo"></div>
     </div>
   </div>
 
-  <!-- REWARD TIMER OVERLAY -->
   <div id="rewardOverlay" class="overlay hidden" aria-hidden="true">
     <div class="modal">
       <div class="modalTop">
@@ -103,14 +122,13 @@
           <button id="stopRewardBtn" class="danger">종료</button>
         </div>
         <div class="rewardNote">
-          ※ 브라우저 제한상 유튜브 탭을 강제 종료하진 못하지만,<br/>
-          시간 종료 시 이 게임 페이지는 자동으로 차단 페이지로 이동해.
+          ※ 외부 사이트(유튜브) 탭을 강제 종료하진 못하지만,<br/>
+          보상 종료 시 게임 페이지는 자동으로 차단 페이지로 이동해.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- BOSS CUTSCENE OVERLAY -->
   <div id="bossOverlay" class="overlay hidden" aria-hidden="true">
     <div class="modal boss">
       <div class="bossTitle">21F – 거대 슬라임 출현!</div>
