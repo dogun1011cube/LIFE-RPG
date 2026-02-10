@@ -57,7 +57,7 @@
       <section class="panel canvasPanel">
         <h2>타워</h2>
         <canvas id="gameCanvas" width="520" height="520"></canvas>
-        <div class="hint">보상 시간 종료 시 메인 게임 페이지는 blocked로 이동</div>
+        <div class="hint">보상 시간 종료 시 이 게임 탭은 blocked로 강제 이동</div>
       </section>
 
       <section class="panel">
@@ -116,8 +116,12 @@
       </div>
 
       <div class="form" style="margin-top:10px;">
-        <label>보상으로 열 사이트 URL (원하는 사이트 붙여넣기)</label>
+        <label>보상으로 열 사이트 URL</label>
         <input id="rewardUrlInput" placeholder="예: https://www.youtube.com" />
+        <label style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+          <input id="sameTabToggle" type="checkbox" />
+          <span>같은 탭으로 열기(시간 끝나면 <b>확실히</b> blocked로 강제 복귀)</span>
+        </label>
       </div>
 
       <div class="shopGrid">
@@ -145,9 +149,8 @@
 
       <div class="shopInfo" id="shopInfo"></div>
       <div class="hint">
-        ✅ 보상 탭이 안 열리면: <b>팝업 허용</b> + 확장프로그램(광고차단) 일시 중지 후 다시 시도.<br/>
-        ⚠️ 브라우저 보안상 “외부 탭 강제 닫기/강제 포커스 이동”은 불가능해.<br/>
-        대신 시간이 끝나면 <b>메인 게임 탭은 blocked로 강제 이동</b>해.
+        🔥 <b>같은 탭 모드</b>는 시간이 끝나면 그 탭을 blocked로 보내기 때문에 “강제 복귀” 체감이 제일 강해.<br/>
+        (대신 게임 화면은 보상 중에는 안 보임)
       </div>
     </div>
   </div>
@@ -158,7 +161,7 @@
       <div class="modalTop">
         <div>
           <div class="modalTitle">보상 모드</div>
-          <div class="modalSub">남은 시간이 끝나면 메인 게임 탭은 blocked로 이동</div>
+          <div class="modalSub">남은 시간이 끝나면 blocked로 이동</div>
         </div>
         <button id="closeRewardBtn" class="ghost">닫기</button>
       </div>
@@ -171,8 +174,7 @@
           <button id="stopRewardBtn" class="danger">종료</button>
         </div>
         <div class="rewardNote">
-          ※ “사이트 열기”는 반드시 <b>클릭으로만</b> 새 탭을 열 수 있어(자동은 차단될 수 있음).<br/>
-          ※ URL은 상점 입력칸에 넣은 값이 저장돼.
+          ※ 새 탭 모드에서만 “재시도”가 의미가 있어. 같은 탭 모드면 구매 즉시 이동.
         </div>
       </div>
     </div>

@@ -22,22 +22,29 @@
       <section class="panel">
         <h2>상태</h2>
         <div id="blockedInfo" class="drop"></div>
-        <div class="hint">돌아가기를 누르면 차단이 해제되고 게임 화면으로 돌아가.</div>
+        <div class="hint">만약 “차단 상태가 아니야”가 떠도, 돌아가기를 누르면 게임으로 이동해.</div>
       </section>
     </main>
   </div>
 
   <script>
-    const PROFILES_KEY = "life_rpg_profiles_v132";
-    function readPack(){ try { return JSON.parse(localStorage.getItem(PROFILES_KEY)||""); } catch { return null; } }
-    function writePack(p){ localStorage.setItem(PROFILES_KEY, JSON.stringify(p)); }
-    const pack = readPack();
+    const PROFILES_KEY = "life_rpg_profiles";
+
+    function tryReadJson(key){
+      const raw = localStorage.getItem(key);
+      if(!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    const pack = tryReadJson(PROFILES_KEY);
     const prof = pack?.profiles?.[pack?.activeId];
     const s = prof?.state;
     const box = document.getElementById("blockedInfo");
 
-    if(!s || !s.block?.active){
-      box.innerHTML = "<b>차단 상태가 아니야.</b>";
+    if(!s){
+      box.innerHTML = "<b>데이터를 못 찾았어.</b><div style='opacity:.75;margin-top:6px;'>그래도 돌아가기를 누르면 게임으로 가.</div>";
+    } else if(!s.block?.active){
+      box.innerHTML = "<b>차단 상태가 아니야.</b><div style='opacity:.75;margin-top:6px;'>돌아가기를 누르면 게임으로 이동.</div>";
     } else {
       const ended = new Date(s.block.endedAtMs || Date.now()).toLocaleString();
       box.innerHTML = "<b>프로필:</b> " + (prof.name||"-") +
@@ -46,10 +53,11 @@
     }
 
     document.getElementById("backBtn").onclick = () => {
-      const p2 = readPack();
+      const p2 = tryReadJson(PROFILES_KEY);
       const a = p2?.profiles?.[p2?.activeId];
       if(a?.state?.block) a.state.block.active = false;
-      writePack(p2);
+      if(a?.state?.reward) a.state.reward.active = false;
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(p2 || pack || {}));
       location.href = "index.html";
     };
   </script>
