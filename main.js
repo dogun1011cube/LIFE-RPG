@@ -91,7 +91,6 @@ function genId(){
   return "s" + Math.random().toString(16).slice(2,10) + Date.now().toString(16);
 }
 function calcLevel(xp){
-  // simple leveling: 0-999 = Lv1, 1000-1999 = Lv2 ...
   return Math.floor(Math.max(0, xp)/1000) + 1;
 }
 function computeGainsFromSeconds(seconds){
@@ -131,7 +130,7 @@ function defaultState(){
     level: 1,
     subjects: {},
     subjectsList: ["화학2","물리1","수학","국어","영어"],
-    sessions: [], // {id, kind:"study", time, day, subject, seconds, xpGain, goldGain, floorsUp}
+    sessions: [],
     logs: []
   };
 }
@@ -149,7 +148,6 @@ function loadState(p){
       return s;
     }
     const s = JSON.parse(raw);
-    // harden
     if(typeof s.day !== "number") s.day = 1;
     if(typeof s.totalSeconds !== "number") s.totalSeconds = 0;
     if(typeof s.xp !== "number") s.xp = 0;
@@ -242,7 +240,6 @@ function deleteSession(sessionId){
 
   if(!confirm(`이 기록을 삭제할까요?\n${s.subject} / ${formatHMS(s.seconds)}\n(되돌리면 XP/Gold/층도 함께 감소)`)) return;
 
-  // reverse
   state.totalSeconds = Math.max(0, state.totalSeconds - s.seconds);
   state.xp = Math.max(0, state.xp - s.xpGain);
   state.gold = Math.max(0, state.gold - s.goldGain);
@@ -264,14 +261,12 @@ function applySessionEdit(sessionId, newSubject, newSeconds){
   const g = computeGainsFromSeconds(newSeconds);
   if(g.minutes <= 0){ alert("1분 이상부터 XP가 쌓여"); return false; }
 
-  // reverse old
   state.totalSeconds = Math.max(0, state.totalSeconds - old.seconds);
   state.xp = Math.max(0, state.xp - old.xpGain);
   state.gold = Math.max(0, state.gold - old.goldGain);
   state.floor = Math.max(0, state.floor - old.floorsUp);
   state.subjects[old.subject] = Math.max(0, (state.subjects[old.subject]||0) - old.seconds);
 
-  // apply new
   state.totalSeconds += newSeconds;
   state.xp += g.xpGain;
   state.gold += g.goldGain;
@@ -366,7 +361,6 @@ function deleteSelectedSessions(){
   if(!confirm(`선택한 ${chks.length}개의 기록을 삭제할까요?\n(되돌리면 XP/Gold/층/누적시간이 같이 감소)`)) return;
   const ids = chks.map(c => c.getAttribute("data-rec-id"));
   ids.forEach(id => {
-    // silent delete without confirm (study only)
     const i = state.sessions.findIndex(s => s.id === id && s.kind === "study");
     if(i === -1) return;
     const s = state.sessions[i];
@@ -547,7 +541,6 @@ $editAddSubjectBtn.onclick = () => {
 
 /* Init */
 try{
-  // ensure profile list exists
   let list = getProfiles();
   if(list.length === 0){ list = ["default"]; setProfiles(list); }
   if(!list.includes(profile)){ profile = list[0]; setActiveProfile(profile); state = loadState(profile); }
