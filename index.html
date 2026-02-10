@@ -67,7 +67,10 @@
       </section>
 
       <section class="panel">
-        <h2>로그</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">로그</h2>
+          <button id="recordsBtn" class="ghost" type="button">기록 관리</button>
+        </div>
         <div id="log" class="log"></div>
       </section>
     </main>
@@ -191,6 +194,30 @@
       </div>
     </div>
   </div>
+
+
+  <!-- RECORDS OVERLAY -->
+  <div id="recordsOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="modal">
+      <div class="modalTop">
+        <div>
+          <div class="modalTitle">기록 관리</div>
+          <div class="modalSub">삭제할 기록을 직접 선택할 수 있어 (삭제하면 XP/Gold/층도 같이 되돌아감)</div>
+        </div>
+        <button id="closeRecordsBtn" class="ghost">닫기</button>
+      </div>
+
+      <div class="recordsTools">
+        <input id="recordsSearch" placeholder="과목 검색 (예: 화학2)" />
+        <label class="recordsCheck"><input type="checkbox" id="recordsSelectAll" /> 전체 선택</label>
+        <button id="deleteSelectedBtn" class="danger">선택 삭제</button>
+      </div>
+
+      <div id="recordsList" class="recordsList"></div>
+      <div class="hint">※ 최근 200개까지 표시</div>
+    </div>
+  </div>
+
 
   <!-- BOSS OVERLAY -->
   <div id="bossOverlay" class="overlay hidden" aria-hidden="true">

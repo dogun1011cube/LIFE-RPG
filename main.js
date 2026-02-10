@@ -164,6 +164,61 @@ function deleteSession(sessionId){
   persist(); renderStats(); renderLogs();
 }
 
+function renderRecordsList(){
+  if(!$recordsList) return;
+  const q = ($recordsSearch?.value || "").trim().toLowerCase();
+  const list = (state.sessions || []).slice(0, 200).filter(s => !q || (s.subject||"").toLowerCase().includes(q));
+  $recordsList.innerHTML = list.map(s => `
+    <div class="recordRow">
+      <input type="checkbox" class="recChk" data-rec-id="${s.id}" />
+      <div>
+        <div style="font-weight:1000;">${s.subject} — ${formatHMS(s.seconds)}</div>
+        <div class="recordMeta">Day ${s.day} · +XP ${s.xpGain} / +G ${s.goldGain} / +${s.floorsUp}F · ${s.time}</div>
+      </div>
+      <button class="smallBtn danger" data-del-session="${s.id}">즉시 삭제</button>
+    </div>
+  `).join("") || `<div class="logItem"><div class="m" style="opacity:.7;">표시할 기록이 없어</div></div>`;
+
+  // bind per-row instant delete
+  $recordsList.querySelectorAll("[data-del-session]").forEach(btn => {
+    btn.onclick = () => deleteSession(btn.getAttribute("data-del-session"));
+  });
+
+  // reset select all
+  if($recordsSelectAll) $recordsSelectAll.checked = false;
+}
+
+function deleteSessionSilent(sessionId){
+  const i = (state.sessions || []).findIndex(s => s.id === sessionId);
+  if(i === -1) return false;
+  const s = state.sessions[i];
+  state.totalSeconds = Math.max(0, (state.totalSeconds || 0) - (s.seconds || 0));
+  state.xp = Math.max(0, (state.xp || 0) - (s.xpGain || 0));
+  state.gold = Math.max(0, (state.gold || 0) - (s.goldGain || 0));
+  state.floor = Math.max(0, (state.floor || 0) - (s.floorsUp || 0));
+  state.battleCount = Math.max(0, (state.battleCount || 0) - 1);
+  state.level = calcLevel(state.xp);
+  if(state.subjects && typeof state.subjects === "object"){
+    const cur = state.subjects[s.subject] || 0;
+    state.subjects[s.subject] = Math.max(0, cur - (s.seconds || 0));
+  }
+  state.sessions.splice(i, 1);
+  return true;
+}
+
+function deleteSelectedSessions(){
+  const chks = Array.from(document.querySelectorAll(".recChk:checked"));
+  if(chks.length === 0) return alert("삭제할 기록을 선택해줘.");
+  if(!confirm(`선택한 ${chks.length}개의 기록을 삭제할까요?\n(삭제하면 XP/Gold/층/누적시간이 같이 되돌아감)`)) return;
+  // delete silently
+  const ids = chks.map(c => c.getAttribute("data-rec-id"));
+  let okCount = 0;
+  ids.forEach(id => { if(deleteSessionSilent(id)) okCount++; });
+  pushLog(state, "🗑️ 선택 삭제", `${okCount}개 기록을 삭제했어 (되돌림)`);
+  persist(); renderStats(); renderLogs();
+  renderRecordsList();
+}
+
 
 function msToMMSS(ms){ const s = Math.max(0, Math.floor(ms/1000)); return `${p2(Math.floor(s/60))}:${p2(s%60)}`; }
 function normalizeUrl(url){ url=(url||"").trim(); if(!url) return ""; if(!/^https?:\/\//i.test(url)) url="https://"+url; return url; }
@@ -215,6 +270,14 @@ const $rewardName = document.getElementById("rewardName");
 const $rewardTime = document.getElementById("rewardTime");
 const $openRewardSiteBtn = document.getElementById("openRewardSiteBtn");
 const $stopRewardBtn = document.getElementById("stopRewardBtn");
+
+const $recordsBtn = document.getElementById("recordsBtn");
+const $recordsOverlay = document.getElementById("recordsOverlay");
+const $closeRecordsBtn = document.getElementById("closeRecordsBtn");
+const $recordsList = document.getElementById("recordsList");
+const $recordsSearch = document.getElementById("recordsSearch");
+const $recordsSelectAll = document.getElementById("recordsSelectAll");
+const $deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
 
 const $bossOverlay = document.getElementById("bossOverlay");
 const $bossFightBtn = document.getElementById("bossFightBtn");
@@ -525,6 +588,27 @@ $openRewardSiteBtn.onclick = () => {
 };
 $stopRewardBtn.onclick = stopReward;
 
+
+/* Records Manager */
+if($recordsBtn && $recordsOverlay){
+  $recordsBtn.onclick = () => {
+    renderRecordsList();
+    openOverlay($recordsOverlay);
+  };
+}
+if($closeRecordsBtn) $closeRecordsBtn.onclick = () => closeOverlay($recordsOverlay);
+
+if($recordsSearch) $recordsSearch.oninput = () => renderRecordsList();
+
+if($recordsSelectAll){
+  $recordsSelectAll.onchange = () => {
+    const checked = $recordsSelectAll.checked;
+    document.querySelectorAll(".recChk").forEach(c => c.checked = checked);
+  };
+}
+
+if($deleteSelectedBtn) $deleteSelectedBtn.onclick = () => deleteSelectedSessions();
+
 /* Boss 21F */
 function maybeShowBoss21(){ if(state.floor >= 21 && !state.boss.shown21 && !state.boss.defeated21){ state.boss.shown21=true; persist(); openOverlay($bossOverlay); } }
 $bossFightBtn.onclick = () => {
@@ -554,7 +638,7 @@ let t=0; function loop(){ t++; tickReward(); renderCanvas(t); requestAnimationFr
 renderStats(); renderLogs(); renderProfileUI();
 renderSubjects();
 [$hoursInput,$minutesInput,$secondsInput].forEach(el=>{ ensureNumberInputZero(el); el && el.addEventListener("blur", ()=>ensureNumberInputZero(el)); });
-setDropText("v1.3.5 적용됨: 기록 삭제(되돌리기) + 과목 선택/추가 + 시간칸 자동 0");
+setDropText("v1.3.6 적용됨: 기록 관리(선택 삭제) + 과목 선택/추가 + 시간칸 자동 0");
 if(state.reward.active){ $rewardName.textContent = state.reward.label; openOverlay($rewardOverlay); }
 maybeShowBoss21();
 loop();

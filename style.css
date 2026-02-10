@@ -77,3 +77,11 @@ canvas { width:100%; height:auto; background:#0f1426; border-radius:14px; border
 .smallBtn{ padding:8px 10px; border-radius:10px; font-size:12px; font-weight:900; }
 .smallBtn.danger{ background:#ff3a66; }
 .smallBtn.ghost{ background: transparent; border:1px solid rgba(255,255,255,.18); }
+
+
+.recordsTools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+.recordsTools input{ flex:1 1 220px; }
+.recordsCheck{ display:flex; gap:8px; align-items:center; opacity:.85; font-weight:800; }
+.recordsList{ margin-top:12px; max-height:420px; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.recordRow{ display:grid; grid-template-columns: auto 1fr auto; gap:10px; align-items:center; padding:10px; border-radius:12px; background:#0f1426; border:1px solid rgba(255,255,255,.10); }
+.recordMeta{ opacity:.75; font-size:12px; margin-top:2px; }
