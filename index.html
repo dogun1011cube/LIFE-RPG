@@ -196,6 +196,55 @@
   </div>
 
 
+
+  <!-- EDIT OVERLAY -->
+  <div id="editOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="modal">
+      <div class="modalTop">
+        <div>
+          <div class="modalTitle">기록 수정</div>
+          <div class="modalSub">로그에서 원하는 기록을 클릭해서 수정할 수 있어</div>
+        </div>
+        <button id="closeEditBtn" class="ghost">닫기</button>
+      </div>
+
+      <div class="form" style="margin-top:10px;">
+        <label>과목</label>
+        <div class="subjectRow">
+          <select id="editSubjectSelect"></select>
+          <button id="editAddSubjectOpenBtn" class="ghost" type="button">+ 과목</button>
+        </div>
+        <div id="editAddSubjectRow" class="addSubjectRow hidden">
+          <input id="editNewSubjectInput" placeholder="새 과목 이름" />
+          <button id="editAddSubjectBtn" type="button">추가</button>
+        </div>
+
+        <label>시간</label>
+        <div class="hms">
+          <div class="hmsItem">
+            <div class="hmsLabel">시간</div>
+            <input id="editHours" type="number" min="0" step="1" placeholder="0" />
+          </div>
+          <div class="hmsItem">
+            <div class="hmsLabel">분</div>
+            <input id="editMinutes" type="number" min="0" step="1" placeholder="0" />
+          </div>
+          <div class="hmsItem">
+            <div class="hmsLabel">초</div>
+            <input id="editSeconds" type="number" min="0" step="1" placeholder="0" />
+          </div>
+        </div>
+
+        <div class="rewardActions" style="justify-content:flex-end;">
+          <button id="saveEditBtn">저장</button>
+          <button id="deleteEditBtn" class="danger">삭제</button>
+        </div>
+        <div class="hint">※ 저장하면 XP/Gold/층/누적시간이 자동으로 다시 계산돼.</div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- RECORDS OVERLAY -->
   <div id="recordsOverlay" class="overlay hidden" aria-hidden="true">
     <div class="modal">

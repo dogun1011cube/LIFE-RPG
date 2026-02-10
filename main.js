@@ -169,7 +169,7 @@ function renderRecordsList(){
   const q = ($recordsSearch?.value || "").trim().toLowerCase();
   const list = (state.sessions || []).slice(0, 200).filter(s => !q || (s.subject||"").toLowerCase().includes(q));
   $recordsList.innerHTML = list.map(s => `
-    <div class="recordRow">
+    <div class="recordRow clickable" data-edit-session="${s.id}">
       <input type="checkbox" class="recChk" data-rec-id="${s.id}" />
       <div>
         <div style="font-weight:1000;">${s.subject} — ${formatHMS(s.seconds)}</div>
@@ -181,7 +181,10 @@ function renderRecordsList(){
 
   // bind per-row instant delete
   $recordsList.querySelectorAll("[data-del-session]").forEach(btn => {
-    btn.onclick = () => deleteSession(btn.getAttribute("data-del-session"));
+    btn.onclick = (e) => { e.stopPropagation(); deleteSession(btn.getAttribute("data-del-session")); };
+  });
+  $recordsList.querySelectorAll("[data-edit-session]").forEach(row => {
+    row.onclick = () => openEditSession(row.getAttribute("data-edit-session"));
   });
 
   // reset select all
@@ -271,6 +274,21 @@ const $rewardTime = document.getElementById("rewardTime");
 const $openRewardSiteBtn = document.getElementById("openRewardSiteBtn");
 const $stopRewardBtn = document.getElementById("stopRewardBtn");
 
+const $editOverlay = document.getElementById("editOverlay");
+const $closeEditBtn = document.getElementById("closeEditBtn");
+const $editSubjectSelect = document.getElementById("editSubjectSelect");
+const $editAddSubjectOpenBtn = document.getElementById("editAddSubjectOpenBtn");
+const $editAddSubjectRow = document.getElementById("editAddSubjectRow");
+const $editNewSubjectInput = document.getElementById("editNewSubjectInput");
+const $editAddSubjectBtn = document.getElementById("editAddSubjectBtn");
+const $editHours = document.getElementById("editHours");
+const $editMinutes = document.getElementById("editMinutes");
+const $editSeconds = document.getElementById("editSeconds");
+const $saveEditBtn = document.getElementById("saveEditBtn");
+const $deleteEditBtn = document.getElementById("deleteEditBtn");
+
+let editingSessionId = null;
+
 const $recordsBtn = document.getElementById("recordsBtn");
 const $recordsOverlay = document.getElementById("recordsOverlay");
 const $closeRecordsBtn = document.getElementById("closeRecordsBtn");
@@ -338,7 +356,7 @@ function ensureNumberInputZero(el){
 }
 function renderLogs(){
   const sessionsHtml = (state.sessions || []).slice(0, 20).map(s => `
-    <div class="logItem">
+    <div class="logItem clickable" data-edit-session="${s.id}">
       <div class="t">📌 기록: ${s.subject}</div>
       <div class="m">${formatHMS(s.seconds)} (Day ${s.day}) → +XP ${s.xpGain} / +G ${s.goldGain} / +${s.floorsUp}F</div>
       <div class="m" style="opacity:.55">${s.time}</div>
@@ -347,6 +365,48 @@ function renderLogs(){
       </div>
     </div>
   `).join("");
+function computeGainsFromSeconds(seconds){
+  const minutes = Math.floor(Math.max(0, seconds) / 60);
+  const xpGain = minutes;
+  const goldGain = Math.floor(minutes / 10);
+  const floorsUp = Math.floor(minutes / 10);
+  return { minutes, xpGain, goldGain, floorsUp };
+}
+
+function secondsToHMS(total){
+  const s = Math.max(0, Math.floor(total));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const ss = s%60;
+  return { h, m, s:ss };
+}
+
+function renderSubjectsInto(selectEl){
+  if(!selectEl) return;
+  const cur = selectEl.value;
+  const opts = (state.subjectsList || []).map(s => `<option value="${s}">${s}</option>`).join("");
+  selectEl.innerHTML = opts;
+  if(cur && (state.subjectsList || []).includes(cur)) selectEl.value = cur;
+}
+
+function openEditSession(sessionId){
+  const sess = (state.sessions || []).find(s => s.id === sessionId);
+  if(!sess) return;
+  editingSessionId = sessionId;
+
+  renderSubjectsInto($editSubjectSelect);
+  if($editSubjectSelect) $editSubjectSelect.value = sess.subject;
+
+  const hms = secondsToHMS(sess.seconds);
+  if($editHours) $editHours.value = String(hms.h);
+  if($editMinutes) $editMinutes.value = String(hms.m);
+  if($editSeconds) $editSeconds.value = String(hms.s);
+
+  // ensure blanks become 0
+  [$editHours,$editMinutes,$editSeconds].forEach(el => { ensureNumberInputZero(el); });
+  openOverlay($editOverlay);
+}
+
 
   const logsHtml = (state.logs || []).slice(0, 60).map(l => `
     <div class="logItem">
@@ -369,7 +429,11 @@ function renderLogs(){
   `;
 
   document.querySelectorAll("[data-del-session]").forEach(btn => {
-    btn.onclick = () => deleteSession(btn.getAttribute("data-del-session"));
+    btn.onclick = (e) => { e.stopPropagation(); deleteSession(btn.getAttribute("data-del-session")); };
+  });
+
+  document.querySelectorAll("[data-edit-session]").forEach(card => {
+    card.onclick = () => openEditSession(card.getAttribute("data-edit-session"));
   });
 }
 
@@ -609,6 +673,106 @@ if($recordsSelectAll){
 
 if($deleteSelectedBtn) $deleteSelectedBtn.onclick = () => deleteSelectedSessions();
 
+
+/* Edit modal */
+if($closeEditBtn) $closeEditBtn.onclick = () => { editingSessionId = null; closeOverlay($editOverlay); };
+
+function applySessionEdit(sessionId, newSubject, newSeconds){
+  const i = (state.sessions || []).findIndex(s => s.id === sessionId);
+  if(i === -1) return false;
+  const old = state.sessions[i];
+
+  // Reverse old impacts (but keep battleCount same; this is edit not delete)
+  state.totalSeconds = Math.max(0, (state.totalSeconds || 0) - (old.seconds || 0));
+  state.xp = Math.max(0, (state.xp || 0) - (old.xpGain || 0));
+  state.gold = Math.max(0, (state.gold || 0) - (old.goldGain || 0));
+  state.floor = Math.max(0, (state.floor || 0) - (old.floorsUp || 0));
+
+  if(state.subjects && typeof state.subjects === "object"){
+    const cur = state.subjects[old.subject] || 0;
+    state.subjects[old.subject] = Math.max(0, cur - (old.seconds || 0));
+  }
+
+  // Apply new impacts
+  const g = computeGainsFromSeconds(newSeconds);
+  state.totalSeconds += newSeconds;
+  state.xp += g.xpGain;
+  state.gold += g.goldGain;
+  state.floor += g.floorsUp;
+
+  state.subjects = state.subjects || {};
+  state.subjects[newSubject] = (state.subjects[newSubject] || 0) + newSeconds;
+
+  // Update session
+  state.sessions[i] = {
+    ...old,
+    subject: newSubject,
+    seconds: newSeconds,
+    xpGain: g.xpGain,
+    goldGain: g.goldGain,
+    floorsUp: g.floorsUp
+  };
+
+  state.level = calcLevel(state.xp);
+  pushLog(state, "✏️ 기록 수정", `${old.subject}/${formatHMS(old.seconds)} → ${newSubject}/${formatHMS(newSeconds)}`);
+  return true;
+}
+
+if($saveEditBtn){
+  $saveEditBtn.onclick = () => {
+    if(!editingSessionId) return;
+    const subject = ($editSubjectSelect && $editSubjectSelect.value) ? $editSubjectSelect.value : "미분류";
+    const h = Number($editHours?.value || 0);
+    const m = Number($editMinutes?.value || 0);
+    const s = Number($editSeconds?.value || 0);
+    const total = (h*3600) + (m*60) + s;
+    if(total <= 0) return alert("시간은 1초 이상이어야 해.");
+    if(!applySessionEdit(editingSessionId, subject, total)) return alert("수정 실패");
+    persist(); renderStats(); renderLogs(); renderRecordsList();
+    editingSessionId = null;
+    closeOverlay($editOverlay);
+  };
+}
+
+if($deleteEditBtn){
+  $deleteEditBtn.onclick = () => {
+    if(!editingSessionId) return;
+    // delete is revert (like before)
+    deleteSession(editingSessionId);
+    editingSessionId = null;
+    closeOverlay($editOverlay);
+    renderRecordsList();
+  };
+}
+
+// Edit modal subject add
+if($editAddSubjectOpenBtn && $editAddSubjectRow){
+  $editAddSubjectOpenBtn.onclick = () => {
+    $editAddSubjectRow.classList.toggle("hidden");
+    if(!$editAddSubjectRow.classList.contains("hidden") && $editNewSubjectInput) $editNewSubjectInput.focus();
+  };
+}
+if($editAddSubjectBtn){
+  $editAddSubjectBtn.onclick = () => {
+    const name = ($editNewSubjectInput?.value || "").trim();
+    if(!name) return alert("과목 이름을 입력해줘.");
+    state.subjectsList = state.subjectsList || [];
+    if(state.subjectsList.includes(name)) return alert("이미 있는 과목이야.");
+    state.subjectsList.unshift(name);
+    state.subjects = state.subjects || {};
+    state.subjects[name] = state.subjects[name] || 0;
+    if($editNewSubjectInput) $editNewSubjectInput.value = "";
+    if($editAddSubjectRow) $editAddSubjectRow.classList.add("hidden");
+    persist();
+    renderSubjects(); // main select
+    renderSubjectsInto($editSubjectSelect);
+    if($editSubjectSelect) $editSubjectSelect.value = name;
+  };
+}
+
+// auto 0 for edit inputs
+[$editHours,$editMinutes,$editSeconds].forEach(el => { if(!el) return; ensureNumberInputZero(el); el.addEventListener("blur", ()=>ensureNumberInputZero(el)); });
+
 /* Boss 21F */
 function maybeShowBoss21(){ if(state.floor >= 21 && !state.boss.shown21 && !state.boss.defeated21){ state.boss.shown21=true; persist(); openOverlay($bossOverlay); } }
 $bossFightBtn.onclick = () => {
@@ -638,7 +802,7 @@ let t=0; function loop(){ t++; tickReward(); renderCanvas(t); requestAnimationFr
 renderStats(); renderLogs(); renderProfileUI();
 renderSubjects();
 [$hoursInput,$minutesInput,$secondsInput].forEach(el=>{ ensureNumberInputZero(el); el && el.addEventListener("blur", ()=>ensureNumberInputZero(el)); });
-setDropText("v1.3.6 적용됨: 기록 관리(선택 삭제) + 과목 선택/추가 + 시간칸 자동 0");
+setDropText("v1.3.7 적용됨: 로그 클릭으로 기록 수정 + 기록 관리(선택 삭제)");
 if(state.reward.active){ $rewardName.textContent = state.reward.label; openOverlay($rewardOverlay); }
 maybeShowBoss21();
 loop();
