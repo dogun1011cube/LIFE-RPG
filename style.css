@@ -1,26 +1,71 @@
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0b0f1a;color:#e8ecff}.wrap{max-width:1100px;margin:auto;padding:16px}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:18px}.sub{opacity:.7;font-size:13px;margin-top:4px}
-.btns{display:flex;gap:8px;flex-wrap:wrap}button{background:#3a4cff;color:#fff;border:0;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
-button:hover{filter:brightness(1.06)}button.danger{background:#ff3a66}button.ghost{background:transparent;border:1px solid rgba(255,255,255,.18)}
-.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}.panel{background:#121a2e;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
-.canvasPanel{grid-column:2/3}@media(max-width:980px){.grid{grid-template-columns:1fr}.canvasPanel{grid-column:auto}}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#0f1426;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}.stat .k{font-size:12px;opacity:.65}.stat .v{font-size:18px;font-weight:900;margin-top:2px}
-.form{display:grid;gap:8px;margin-top:8px}input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:#0f1426;color:#e8ecff}
-.hms{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.hmsItem{background:#0f1426;border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px}.hmsLabel{font-size:12px;opacity:.7;margin-bottom:6px}
-.drop{margin-top:10px;padding:10px;border-radius:12px;background:#0f1426;border:1px dashed rgba(255,255,255,.2);min-height:44px}
-.hint{opacity:.6;font-size:12px;margin-top:10px;line-height:1.45}
-.log{max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:8px}.logItem{background:#0f1426;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}.logItem .t{font-weight:900}.logItem .m{opacity:.75;margin-top:4px;font-size:13px}
-canvas{width:100%;height:auto;background:#0f1426;border-radius:14px;border:1px solid rgba(255,255,255,.08);image-rendering:pixelated}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.hidden{display:none!important}
-.modal{width:min(760px,96vw);background:#121a2e;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;box-shadow:0 20px 80px rgba(0,0,0,.55)}
-.modalTop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.modalTitle{font-size:18px;font-weight:900}.modalSub{opacity:.7;font-size:13px;margin-top:4px}
-.shopGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}@media(max-width:720px){.shopGrid{grid-template-columns:1fr}}
-.shopItem{text-align:left;background:#0f1426;border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:12px}.shopItem.test{border-style:dashed;opacity:.9}
-.shopItem .siTitle{font-weight:900;font-size:15px}.shopItem .siDesc{opacity:.7;font-size:12px;margin-top:4px}.shopItem .siPrice{margin-top:10px;font-weight:900}
-.shopInfo{margin-top:12px;padding:12px;border-radius:14px;background:#0f1426;border:1px dashed rgba(255,255,255,.2);min-height:56px;opacity:.9}
-.rewardBox{margin-top:12px;background:#0f1426;border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:14px;text-align:center}
-.rewardName{font-weight:900;font-size:16px}.rewardTime{font-weight:1000;font-size:44px;margin-top:6px;letter-spacing:1px}
-.rewardActions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}.rewardNote{margin-top:10px;opacity:.7;font-size:12px;line-height:1.4}
-.modal.boss{text-align:center}.bossTitle{font-size:22px;font-weight:1000}.bossDesc{opacity:.75;margin-top:6px}.bossActions{margin-top:14px;display:flex;justify-content:center}
-.profileBox{margin-top:12px;display:grid;gap:10px}.profileRow{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center}
-.profileLabel{opacity:.75;font-weight:800}.profileValue{font-weight:1000}.profileDanger{margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+* { box-sizing: border-box; }
+body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:#0b0f1a; color:#e8ecff; }
+.wrap { max-width:1100px; margin:auto; padding:16px; }
+.topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+h1 { margin:0; font-size:18px; }
+.sub { opacity:.7; font-size:13px; margin-top:4px; }
+.btns { display:flex; gap:8px; flex-wrap:wrap; }
+button { background:#3a4cff; color:white; border:0; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer; }
+button:hover { filter:brightness(1.06); }
+button.danger { background:#ff3a66; }
+button.ghost { background: transparent; border:1px solid rgba(255,255,255,.18); }
+
+.grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:14px; }
+.panel { background:#121a2e; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; }
+.canvasPanel { grid-column:2 / 3; }
+@media (max-width: 980px){ .grid { grid-template-columns:1fr; } .canvasPanel { grid-column:auto; } }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.stat { background:#0f1426; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; }
+.stat .k { font-size:12px; opacity:.65; }
+.stat .v { font-size:18px; font-weight:900; margin-top:2px; }
+
+.form { display:grid; gap:8px; margin-top:8px; }
+input, select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:#0f1426; color:#e8ecff; }
+
+.hms{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
+.hmsItem{ background:#0f1426; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:10px; }
+.hmsLabel{ font-size:12px; opacity:.7; margin-bottom:6px; }
+
+.drop { margin-top:10px; padding:10px; border-radius:12px; background:#0f1426; border:1px dashed rgba(255,255,255,.2); min-height:44px; }
+.hint { opacity:.6; font-size:12px; margin-top:10px; line-height:1.45; }
+
+.log { max-height:520px; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.logItem { background:#0f1426; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; }
+.logItem .t { font-weight:900; }
+.logItem .m { opacity:.75; margin-top:4px; font-size:13px; }
+
+canvas { width:100%; height:auto; background:#0f1426; border-radius:14px; border:1px solid rgba(255,255,255,.08); image-rendering: pixelated; }
+
+.overlay{ position:fixed; inset:0; background: rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index: 50; }
+.hidden{ display:none !important; }
+.modal{ width:min(760px, 96vw); background:#121a2e; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:14px; box-shadow: 0 20px 80px rgba(0,0,0,.55); }
+.modalTop{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.modalTitle{ font-size:18px; font-weight:900; }
+.modalSub{ opacity:.7; font-size:13px; margin-top:4px; }
+
+.shopGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+@media (max-width: 720px){ .shopGrid{ grid-template-columns:1fr; } }
+.shopItem{ text-align:left; background:#0f1426; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px; }
+.shopItem.test{ border-style:dashed; opacity:.9; }
+.shopItem .siTitle{ font-weight:900; font-size:15px; }
+.shopItem .siDesc{ opacity:.7; font-size:12px; margin-top:4px; }
+.shopItem .siPrice{ margin-top:10px; font-weight:900; }
+.shopInfo{ margin-top:12px; padding:12px; border-radius:14px; background:#0f1426; border:1px dashed rgba(255,255,255,.2); min-height:56px; opacity:.9; }
+
+.rewardBox{ margin-top:12px; background:#0f1426; border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:14px; text-align:center; }
+.rewardName{ font-weight:900; font-size:16px; }
+.rewardTime{ font-weight:1000; font-size:44px; margin-top:6px; letter-spacing: 1px; }
+.rewardActions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+.rewardNote{ margin-top:10px; opacity:.7; font-size:12px; line-height:1.4; }
+
+.modal.boss{ text-align:center; }
+.bossTitle{ font-size:22px; font-weight:1000; }
+.bossDesc{ opacity:.75; margin-top:6px; }
+.bossActions{ margin-top:14px; display:flex; justify-content:center; }
+
+.profileBox{ margin-top:12px; display:grid; gap:10px; }
+.profileRow{ display:grid; grid-template-columns: 110px 1fr auto; gap:10px; align-items:center; }
+.profileLabel{ opacity:.75; font-weight:800; }
+.profileValue{ font-weight:1000; }
+.profileDanger{ margin-top:6px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
