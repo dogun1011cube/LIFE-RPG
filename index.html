@@ -16,6 +16,7 @@
       <div class="btns">
         <button id="wakeBtn">일어났어 (Day+)</button>
         <button id="endDayBtn">오늘 공부 끝</button>
+        <button id="shopBtn">상점</button>
         <button id="resetBtn" class="danger">초기화(주의)</button>
       </div>
     </header>
@@ -28,9 +29,9 @@
         <h2>공부 입력</h2>
         <div class="form">
           <label>과목</label>
-          <input id="subjectInput" placeholder="예: 화학2, 물리1" />
+          <input id="subjectInput" placeholder="예: 화학2, 물리1, KJSO" />
           <label>시간(분)</label>
-          <input id="minutesInput" type="number" min="1" placeholder="예: 45" />
+          <input id="minutesInput" type="number" min="1" step="1" placeholder="예: 45" />
           <button id="addStudyBtn">추가</button>
         </div>
 
@@ -40,6 +41,7 @@
       <section class="panel canvasPanel">
         <h2>타워</h2>
         <canvas id="gameCanvas" width="520" height="520"></canvas>
+        <div class="hint">보상 시간 종료 시 차단 페이지로 이동</div>
       </section>
 
       <section class="panel">
@@ -47,6 +49,76 @@
         <div id="log" class="log"></div>
       </section>
     </main>
+  </div>
+
+  <!-- SHOP OVERLAY -->
+  <div id="shopOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="modal">
+      <div class="modalTop">
+        <div>
+          <div class="modalTitle">상점</div>
+          <div class="modalSub">Gold로 현실 보상 “사용권(분)”을 구매</div>
+        </div>
+        <button id="closeShopBtn" class="ghost">닫기</button>
+      </div>
+
+      <div class="shopGrid">
+        <button class="shopItem" data-sku="YT30">
+          <div class="siTitle">유튜브 30분</div>
+          <div class="siDesc">집중 후 보상 타임</div>
+          <div class="siPrice">100G</div>
+        </button>
+        <button class="shopItem" data-sku="DESSERT">
+          <div class="siTitle">디저트</div>
+          <div class="siDesc">맛있는 회복</div>
+          <div class="siPrice">80G</div>
+        </button>
+        <button class="shopItem" data-sku="WALK">
+          <div class="siTitle">산책</div>
+          <div class="siDesc">몸/멘탈 리셋</div>
+          <div class="siPrice">50G</div>
+        </button>
+      </div>
+
+      <div class="shopInfo" id="shopInfo"></div>
+    </div>
+  </div>
+
+  <!-- REWARD TIMER OVERLAY -->
+  <div id="rewardOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="modal">
+      <div class="modalTop">
+        <div>
+          <div class="modalTitle">보상 모드</div>
+          <div class="modalSub">남은 시간이 끝나면 “차단 페이지”로 이동</div>
+        </div>
+        <button id="closeRewardBtn" class="ghost">닫기</button>
+      </div>
+
+      <div class="rewardBox">
+        <div class="rewardName" id="rewardName">-</div>
+        <div class="rewardTime" id="rewardTime">00:00</div>
+        <div class="rewardActions">
+          <button id="openRewardSiteBtn">사이트 열기</button>
+          <button id="stopRewardBtn" class="danger">종료</button>
+        </div>
+        <div class="rewardNote">
+          ※ 브라우저 제한상 유튜브 탭을 강제 종료하진 못하지만,<br/>
+          시간 종료 시 이 게임 페이지는 자동으로 차단 페이지로 이동해.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOSS CUTSCENE OVERLAY -->
+  <div id="bossOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="modal boss">
+      <div class="bossTitle">21F – 거대 슬라임 출현!</div>
+      <div class="bossDesc">승리 시 레벨업 확정</div>
+      <div class="bossActions">
+        <button id="bossFightBtn">전투 개시</button>
+      </div>
+    </div>
   </div>
 
   <script src="main.js"></script>
