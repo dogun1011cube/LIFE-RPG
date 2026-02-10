@@ -1,10 +1,13 @@
-// LIFE RPG v1.3.3 — Fix blocked mismatch by using STABLE storage key
-// Also adds "same tab reward" option for true forced return.
-// Storage key: life_rpg_profiles
-// Migrates from older keys: life_rpg_profiles_v132, life_rpg_profiles_v131, life_rpg_profiles_v13, life_rpg_hardcore_v12
+// LIFE RPG v1.3.4 — Data-safe recovery + clicks restored
+// Problem fixed: v1.3.3 could write an empty pack to stable key from blocked page.
+// This version:
+//  - validates stable pack structure
+//  - auto-recovers from legacy keys if stable is broken/empty
+//  - keeps backups before overwriting
+// Storage key (stable): life_rpg_profiles
 
 const PROFILES_KEY = "life_rpg_profiles";
-const LEGACY_KEYS = ['life_rpg_profiles_v132', 'life_rpg_profiles_v131', 'life_rpg_profiles_v13', 'life_rpg_hardcore_v12'];
+const LEGACY_KEYS = ['life_rpg_profiles_v133', 'life_rpg_profiles_v132', 'life_rpg_profiles_v131', 'life_rpg_profiles_v13', 'life_rpg_hardcore_v12'];
 
 function p2(n){ return String(n).padStart(2,"0"); }
 function nowStamp(){
@@ -24,7 +27,7 @@ function defaultState(){
     totalSeconds: 0,
     reward: { active:false, label:null, url:null, endsAtMs:0, winName:null, sameTab:false },
     block: { active:false, label:null, endedAtMs:0 },
-    logs: [{ time: nowStamp(), title: "새 프로필 생성", msg: "Day 1부터 시작 (v1.3.3)" }],
+    logs: [{ time: nowStamp(), title: "새 프로필 생성", msg: "Day 1부터 시작 (v1.3.4)" }],
     subjects: {},
     boss: { shown21:false, defeated21:false },
     prefs: { lastRewardUrl:"", sameTab:false },
@@ -37,31 +40,40 @@ function tryReadJson(key){
   try { return JSON.parse(raw); } catch { return null; }
 }
 
-function migrateToStable(){
-  // Already stable?
-  const stable = tryReadJson(PROFILES_KEY);
-  if(stable) return stable;
+function isValidPack(p){
+  return !!(p && typeof p === "object" && p.activeId && p.profiles && typeof p.profiles === "object" && p.profiles[p.activeId]);
+}
 
-  // Try older packs
+function backupCurrentStable(){
+  const cur = localStorage.getItem(PROFILES_KEY);
+  if(!cur) return;
+  const k = "life_rpg_profiles_backup_" + Date.now();
+  localStorage.setItem(k, cur);
+}
+
+function findBestLegacyPack(){
+  // Prefer packs with profiles+activeId
   for(const k of LEGACY_KEYS){
-    if(k === "life_rpg_hardcore_v12") continue;
-    const oldPack = tryReadJson(k);
-    if(oldPack && oldPack.profiles && oldPack.activeId){
-      localStorage.setItem(PROFILES_KEY, JSON.stringify(oldPack));
-      return oldPack;
-    }
+    const p = tryReadJson(k);
+    if(p && p.profiles && p.activeId && p.profiles[p.activeId]) return {key:k, pack:p};
+  }
+  return null;
+}
+
+function migrateToStable(force=false){
+  const stable = tryReadJson(PROFILES_KEY);
+  if(!force && isValidPack(stable)) return stable;
+
+  const legacy = findBestLegacyPack();
+  if(legacy){
+    backupCurrentStable();
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(legacy.pack));
+    return legacy.pack;
   }
 
-  // Try single legacy state (v12)
-  const legacyState = tryReadJson("life_rpg_hardcore_v12");
-  const pack = { activeId:null, profiles:{} };
-  if(legacyState){
-    pack.profiles["legacy"] = { name:"기존(자동이전)", state: legacyState };
-    pack.activeId = "legacy";
-  } else {
-    pack.profiles["p1"] = { name:"기본", state: defaultState() };
-    pack.activeId = "p1";
-  }
+  // If stable exists but invalid, keep a backup then reset to default
+  backupCurrentStable();
+  const pack = { activeId:"p1", profiles:{ "p1": { name:"기본", state: defaultState() } } };
   localStorage.setItem(PROFILES_KEY, JSON.stringify(pack));
   return pack;
 }
@@ -158,6 +170,7 @@ const $profileSelect = document.getElementById("profileSelect");
 const $switchProfileBtn = document.getElementById("switchProfileBtn");
 const $newProfileName = document.getElementById("newProfileName");
 const $createProfileBtn = document.getElementById("createProfileBtn");
+const $recoverBtn = document.getElementById("recoverBtn");
 const $deleteProfileBtn = document.getElementById("deleteProfileBtn");
 
 const $shopOverlay = document.getElementById("shopOverlay");
@@ -180,7 +193,7 @@ function openOverlay(el){ el.classList.remove("hidden"); }
 function closeOverlay(el){ el.classList.add("hidden"); }
 function setDropText(text){ $lastDrop.innerHTML = text || "최근 드랍 없음"; }
 
-let pack = migrateToStable();
+let pack = migrateToStable(false);
 let activeId = pack.activeId;
 let activeProfile = pack.profiles[activeId];
 let state = activeProfile.state;
@@ -213,7 +226,7 @@ function renderStats(){
 }
 
 function renderLogs(){
-  $log.innerHTML = state.logs.slice(0,70).map(l => `
+  $log.innerHTML = (state.logs||[]).slice(0,70).map(l => `
     <div class="logItem">
       <div class="t">${l.title}</div>
       <div class="m">${l.msg}</div>
@@ -225,6 +238,17 @@ function renderLogs(){
 /* Profile actions */
 $profileBtn.onclick = () => { renderProfileUI(); openOverlay($profileOverlay); };
 $closeProfileBtn.onclick = () => closeOverlay($profileOverlay);
+
+$recoverBtn.onclick = () => {
+  const before = tryReadJson(PROFILES_KEY);
+  const legacy = findBestLegacyPack();
+  if(!legacy) return alert("복구할 이전 데이터가 안 보여. (이전 키가 없거나 삭제됨)");
+  backupCurrentStable();
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(legacy.pack));
+  alert(`복구 완료! (출처: ${legacy.key})\n페이지를 새로고침할게.`);
+  location.reload();
+};
+
 $switchProfileBtn.onclick = () => {
   const id = $profileSelect.value;
   if(!id || !pack.profiles[id]) return;
@@ -236,6 +260,7 @@ $switchProfileBtn.onclick = () => {
   writePack(pack);
   location.href = "index.html";
 };
+
 $createProfileBtn.onclick = () => {
   const name = ($newProfileName.value||"").trim();
   if(!name) return alert("프로필 이름을 입력해줘.");
@@ -245,6 +270,7 @@ $createProfileBtn.onclick = () => {
   writePack(pack);
   location.href = "index.html";
 };
+
 $deleteProfileBtn.onclick = () => {
   const keys = Object.keys(pack.profiles);
   if(keys.length <= 1) return alert("프로필은 최소 1개는 남아야 해.");
@@ -304,15 +330,11 @@ function startReward(minutes, price, url, sameTab){
   persist(); renderStats(); renderLogs();
 
   if(sameTab){
-    // Same-tab mode: navigate this tab immediately. Timer continues only if page stays open,
-    // but we enforce "forced return" by scheduling a redirect via beforeunload? Not reliable.
-    // So we store reward in localStorage and blocked page can enforce when time ends on return.
     if(!url){ alert("같은 탭 모드를 켰으면 URL을 입력해야 해."); return; }
     location.href = url;
     return;
   }
 
-  // New-tab mode
   if(url){
     const r = tryOpenUrl(url, winName);
     pushLog(state, r.ok ? "✅ 보상 탭 열기 시도" : "⚠️ 탭 열기 실패", r.ok ? `방법: ${r.used}` : "팝업/확장프로그램 차단 가능성");
@@ -345,7 +367,6 @@ function tickReward(){
     pushLog(state, "⏰ 보상 시간 종료", `${label} 종료 → blocked로 이동`);
     state.reward = { active:false, label:null, url:null, endsAtMs:0, winName:null, sameTab:false };
     persist();
-    // best effort: redirect named window
     try{ if(winName){ const w = window.open("", winName); if(w) w.location.replace("blocked.html"); } }catch{}
     activateBlockAndRedirect(label);
   }
@@ -395,7 +416,7 @@ $bossFightBtn.onclick = () => {
   setDropText("보스 격파!");
 };
 
-/* Canvas (unchanged) */
+/* Canvas */
 const ctx = document.getElementById("gameCanvas").getContext("2d");
 const PX = 4;
 const GW = 520 / PX;
@@ -410,7 +431,7 @@ let t=0; function loop(){ t++; tickReward(); renderCanvas(t); requestAnimationFr
 
 /* Init */
 renderStats(); renderLogs(); renderProfileUI();
-setDropText("v1.3.3 적용됨: blocked 정상복귀 + 저장키 통합 + 같은 탭 모드");
+setDropText("v1.3.4 적용됨: 진행 복구 + 클릭 정상화 (필요시 프로필>복구)");
 if(state.reward.active){ $rewardName.textContent = state.reward.label; openOverlay($rewardOverlay); }
 maybeShowBoss21();
 loop();
