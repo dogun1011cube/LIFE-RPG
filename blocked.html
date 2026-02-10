@@ -1,65 +1,21 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LIFE RPG – 보상 시간 종료</title>
-  <link rel="stylesheet" href="style.css"/>
-</head>
-<body>
-  <div class="wrap">
-    <header class="topbar">
-      <div>
-        <h1>LIFE RPG – BLOCKED</h1>
-        <div class="sub">보상 시간이 끝났어. 다시 “공부 모드”로 돌아가자.</div>
-      </div>
-      <div class="btns">
-        <button id="backBtn">게임으로 돌아가기</button>
-        <button id="stayBtn" class="ghost">잠깐 더 쉬기</button>
-      </div>
-    </header>
-
-    <main class="grid" style="grid-template-columns:1fr;">
-      <section class="panel">
-        <h2>상태</h2>
-        <div id="blockedInfo" class="drop"></div>
-        <div class="hint">
-          ※ 이 페이지는 “보상 종료”를 명확히 알리기 위한 차단 화면이야.<br/>
-          돌아가기를 누르면 차단이 해제되고 게임 화면으로 돌아가.
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script>
-    const STORAGE_KEY = "life_rpg_hardcore_v12";
-    function load(){
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return null;
-      try { return JSON.parse(raw); } catch { return null; }
-    }
-    function save(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
-
-    const s = load();
-    const box = document.getElementById("blockedInfo");
-
-    if(!s || !s.block || !s.block.active){
-      box.innerHTML = "<b>차단 상태가 아니야.</b><div style='opacity:.75; margin-top:6px;'>게임으로 돌아가도 돼.</div>";
-    } else {
-      const ended = new Date(s.block.endedAtMs || Date.now()).toLocaleString();
-      box.innerHTML = "<b>보상 종료:</b> " + (s.block.label || "-") +
-        "<div style='opacity:.75; margin-top:6px;'>종료 시각: " + ended + "</div>";
-    }
-
-    document.getElementById("backBtn").onclick = () => {
-      const st = load();
-      if(st && st.block) { st.block.active = false; save(st); }
-      location.href = "index.html";
-    };
-
-    document.getElementById("stayBtn").onclick = () => {
-      alert("잠깐 쉬고, 돌아가기를 눌러 게임으로 복귀해!");
-    };
-  </script>
-</body>
-</html>
+<!doctype html><html lang="ko"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>LIFE RPG – 보상 시간 종료</title><link rel="stylesheet" href="style.css"/></head><body>
+<div class="wrap"><header class="topbar"><div><h1>LIFE RPG – BLOCKED</h1><div class="sub">보상 시간이 끝났어. 다시 “공부 모드”로 돌아가자.</div></div>
+<div class="btns"><button id="backBtn">게임으로 돌아가기</button><button id="stayBtn" class="ghost">잠깐 더 쉬기</button></div></header>
+<main class="grid" style="grid-template-columns:1fr;"><section class="panel"><h2>상태</h2><div id="blockedInfo" class="drop"></div>
+<div class="hint">※ 이 페이지는 “보상 종료”를 명확히 알리기 위한 차단 화면이야.<br/>돌아가기를 누르면 차단이 해제되고 게임 화면으로 돌아가.</div>
+</section></main></div>
+<script>
+const PROFILES_KEY="life_rpg_profiles_v13",LEGACY_KEY="life_rpg_hardcore_v12";
+function defaultState(){return{day:1,dayStatus:"INACTIVE",level:1,xp:0,gold:0,floor:0,battleCount:0,totalSeconds:0,reward:{active:false,label:null,url:null,endsAtMs:0},block:{active:false,label:null,endedAtMs:0},logs:[],subjects:{},boss:{shown21:false,defeated21:false}};}
+function readProfiles(){const raw=localStorage.getItem(PROFILES_KEY);if(raw){try{return JSON.parse(raw);}catch{}}
+const legacy=localStorage.getItem(LEGACY_KEY);const profiles={activeId:null,profiles:{}};if(legacy){try{const st=JSON.parse(legacy);profiles.activeId="legacy";profiles.profiles["legacy"]={name:"기존(자동이전)",state:st};}catch{}}
+if(!profiles.activeId){profiles.activeId="p1";profiles.profiles["p1"]={name:"기본",state:defaultState()};}
+localStorage.setItem(PROFILES_KEY,JSON.stringify(profiles));return profiles;}
+function writeProfiles(p){localStorage.setItem(PROFILES_KEY,JSON.stringify(p));}
+const p=readProfiles();const active=p.profiles[p.activeId]||null;const box=document.getElementById("blockedInfo");
+if(!active||!active.state||!active.state.block||!active.state.block.active){box.innerHTML="<b>차단 상태가 아니야.</b><div style='opacity:.75; margin-top:6px;'>게임으로 돌아가도 돼.</div>";}
+else{const s=active.state;const ended=new Date(s.block.endedAtMs||Date.now()).toLocaleString();
+box.innerHTML="<b>프로필:</b> "+(active.name||"-")+"<div style='opacity:.75; margin-top:6px;'><b>보상 종료:</b> "+(s.block.label||"-")+"</div><div style='opacity:.75; margin-top:6px;'>종료 시각: "+ended+"</div>";}
+document.getElementById("backBtn").onclick=()=>{const p2=readProfiles();const a=p2.profiles[p2.activeId];if(a&&a.state&&a.state.block)a.state.block.active=false;writeProfiles(p2);location.href="index.html";};
+document.getElementById("stayBtn").onclick=()=>alert("잠깐 쉬고, 돌아가기를 눌러 게임으로 복귀해!");
+</script></body></html>
