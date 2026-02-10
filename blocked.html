@@ -2,16 +2,21 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>LIFE RPG</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <title>잠금</title>
+  <style>
+    body{margin:0;background:#0b0f1e;color:#e9ecff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .card{max-width:620px;width:100%;background:#111832;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:18px}
+    h1{margin:0 0 8px 0;font-size:18px}
+    p{opacity:.8;line-height:1.5}
+    a,button{display:inline-block;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:#0f1426;color:#e9ecff;text-decoration:none;font-weight:1000;cursor:pointer}
+  </style>
 </head>
 <body>
-  <div id="app">
-    <h1>LIFE RPG</h1>
-    <p>로딩 중...</p>
+  <div class="card">
+    <h1>⛔ 보상 시간 종료</h1>
+    <p>보상 시간이 끝났어. 게임으로 돌아가서 다음 기록을 이어가자.</p>
+    <a href="index.html">게임으로 돌아가기</a>
   </div>
-
-  <script src="main.js"></script>
 </body>
 </html>

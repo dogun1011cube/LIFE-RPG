@@ -1,17 +1,48 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>LIFE RPG</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div id="app">
-    <h1>LIFE RPG</h1>
-    <p>로딩 중...</p>
-  </div>
-
-  <script src="main.js"></script>
-</body>
-</html>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0f1e;color:#e9ecff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.brand .title{font-size:22px;font-weight:1000}
+.brand .sub{opacity:.75;font-size:12px;margin-top:2px}
+.topBtns{display:flex;gap:10px}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+@media (max-width: 900px){.grid{grid-template-columns:1fr}}
+.card{background:#111832;border:1px solid rgba(255,255,255,.10);border-radius:18px;padding:14px;box-shadow:0 10px 20px rgba(0,0,0,.20)}
+h2{margin:0 0 10px 0;font-size:16px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:#0f1426;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px}
+.stat .k{opacity:.7;font-size:12px;font-weight:900}
+.stat .v{margin-top:6px;font-size:18px;font-weight:1000}
+.stat.wide{grid-column:1/-1}
+.drop{margin-top:10px;padding:10px;border-radius:14px;border:1px dashed rgba(255,255,255,.25);opacity:.95}
+.form label{display:block;font-size:12px;opacity:.75;margin-top:8px;margin-bottom:6px;font-weight:900}
+input,select,button{border-radius:12px;border:1px solid rgba(255,255,255,.15);background:#0f1426;color:#e9ecff;padding:10px;font-size:14px}
+select{width:100%}
+button{cursor:pointer;font-weight:1000}
+button.ghost{background:transparent}
+button.danger{background:#ff3a66;border-color:rgba(255,255,255,.10)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.hmsLabel{font-size:12px;opacity:.7;margin-bottom:6px;font-weight:900}
+.hint{margin-top:10px;font-size:12px;opacity:.7}
+.log{max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.logItem{background:#0f1426;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px}
+.logItem .t{font-weight:1000}
+.logItem .m{opacity:.85;margin-top:4px;font-size:13px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:999}
+.hidden{display:none}
+.modal{width:min(820px,100%);background:#111832;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:14px}
+.modalTop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.modalTitle{font-weight:1000;font-size:16px}
+.modalSub{opacity:.75;font-size:12px;margin-top:2px}
+.subjectRow{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; }
+.addSubjectRow{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; margin-top:8px; }
+.recordsTools{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+.recordsTools input{ flex:1 1 220px; }
+.recordsCheck{ display:flex; gap:8px; align-items:center; opacity:.85; font-weight:900; }
+.recordsList{ margin-top:12px; max-height:420px; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+.recordRow{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:10px; border-radius:12px; background:#0f1426; border:1px solid rgba(255,255,255,.10); }
+.recordMeta{ opacity:.75; font-size:12px; margin-top:2px; }
+.clickable{cursor:pointer}
+.clickable:hover{filter:brightness(1.06)}
+.smallBtn{ padding:8px 10px; border-radius:10px; font-size:12px; font-weight:1000; }
