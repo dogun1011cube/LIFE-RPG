@@ -31,6 +31,8 @@ function defaultState(){
     subjects: {},
     boss: { shown21:false, defeated21:false },
     prefs: { lastRewardUrl:"", sameTab:false },
+    subjectsList: ["화학2","물리1","수학","국어","영어"],
+    sessions: [],
   };
 }
 
@@ -136,8 +138,32 @@ function addStudySeconds(state, subject, seconds){
 
   for(let f=startFloor+1; f<=state.floor; f++){ const ev = floorEvents(f); if(ev) pushLog(state, `🌟 특수층 도달: ${f}F`, ev); }
   pushLog(state, `📚 공부 추가: ${subject}`, `${formatHMS(seconds)} → +XP ${xpGain} / +G ${goldGain} / +${floorsUp}F`);
-  return { ok:true };
+  return { ok:true, xpGain, goldGain, floorsUp, minutes };
 }
+
+function deleteSession(sessionId){
+  const i = (state.sessions || []).findIndex(s => s.id === sessionId);
+  if(i === -1) return;
+  const s = state.sessions[i];
+  if(!confirm(`이 기록을 삭제할까요?\n${s.subject} / ${formatHMS(s.seconds)}\n(되돌리면 XP/Gold/층도 함께 감소)`)) return;
+
+  state.totalSeconds = Math.max(0, (state.totalSeconds || 0) - (s.seconds || 0));
+  state.xp = Math.max(0, (state.xp || 0) - (s.xpGain || 0));
+  state.gold = Math.max(0, (state.gold || 0) - (s.goldGain || 0));
+  state.floor = Math.max(0, (state.floor || 0) - (s.floorsUp || 0));
+  state.battleCount = Math.max(0, (state.battleCount || 0) - 1);
+  state.level = calcLevel(state.xp);
+
+  if(state.subjects && typeof state.subjects === "object"){
+    const cur = state.subjects[s.subject] || 0;
+    state.subjects[s.subject] = Math.max(0, cur - (s.seconds || 0));
+  }
+
+  state.sessions.splice(i, 1);
+  pushLog(state, "🗑️ 기록 삭제", `${s.subject} / ${formatHMS(s.seconds)} 기록을 삭제했어 (되돌림)`);
+  persist(); renderStats(); renderLogs();
+}
+
 
 function msToMMSS(ms){ const s = Math.max(0, Math.floor(ms/1000)); return `${p2(Math.floor(s/60))}:${p2(s%60)}`; }
 function normalizeUrl(url){ url=(url||"").trim(); if(!url) return ""; if(!/^https?:\/\//i.test(url)) url="https://"+url; return url; }
@@ -157,7 +183,11 @@ const $endDayBtn = document.getElementById("endDayBtn");
 const $resetBtn = document.getElementById("resetBtn");
 const $shopBtn = document.getElementById("shopBtn");
 
-const $subjectInput = document.getElementById("subjectInput");
+const $subjectSelect = document.getElementById("subjectSelect");
+const $addSubjectOpenBtn = document.getElementById("addSubjectOpenBtn");
+const $addSubjectRow = document.getElementById("addSubjectRow");
+const $newSubjectInput = document.getElementById("newSubjectInput");
+const $addSubjectBtn = document.getElementById("addSubjectBtn");
 const $hoursInput = document.getElementById("hoursInput");
 const $minutesInput = document.getElementById("minutesInput");
 const $secondsInput = document.getElementById("secondsInput");
@@ -198,6 +228,8 @@ let activeId = pack.activeId;
 let activeProfile = pack.profiles[activeId];
 let state = activeProfile.state;
 state.prefs = state.prefs || { lastRewardUrl:"", sameTab:false };
+state.subjectsList = Array.isArray(state.subjectsList) ? state.subjectsList : ["화학2","물리1","수학","국어","영어"];
+state.sessions = Array.isArray(state.sessions) ? state.sessions : [];
 
 function persist(){ pack.profiles[activeId].state = state; pack.activeId = activeId; writePack(pack); }
 function ensureNotBlocked(){ if(state.block && state.block.active) location.replace("blocked.html"); }
@@ -225,19 +257,89 @@ function renderStats(){
   $stats.innerHTML = items.map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 }
 
+
+function genSessionId(){
+  return "s" + Math.random().toString(16).slice(2,10) + Date.now().toString(16);
+}
+function renderSubjects(){
+  const cur = $subjectSelect ? $subjectSelect.value : "";
+  const opts = (state.subjectsList || []).map(s => `<option value="${s}">${s}</option>`).join("");
+  if($subjectSelect) $subjectSelect.innerHTML = opts;
+  if(cur && (state.subjectsList || []).includes(cur) && $subjectSelect) $subjectSelect.value = cur;
+}
+function ensureNumberInputZero(el){
+  if(!el) return;
+  if(el.value === "" || el.value === null || typeof el.value === "undefined") el.value = "0";
+  const n = Number(el.value);
+  if(!Number.isFinite(n) || n < 0) el.value = "0";
+}
 function renderLogs(){
-  $log.innerHTML = (state.logs||[]).slice(0,70).map(l => `
+  const sessionsHtml = (state.sessions || []).slice(0, 20).map(s => `
+    <div class="logItem">
+      <div class="t">📌 기록: ${s.subject}</div>
+      <div class="m">${formatHMS(s.seconds)} (Day ${s.day}) → +XP ${s.xpGain} / +G ${s.goldGain} / +${s.floorsUp}F</div>
+      <div class="m" style="opacity:.55">${s.time}</div>
+      <div class="logActions">
+        <button class="smallBtn danger" data-del-session="${s.id}">삭제(되돌리기)</button>
+      </div>
+    </div>
+  `).join("");
+
+  const logsHtml = (state.logs || []).slice(0, 60).map(l => `
     <div class="logItem">
       <div class="t">${l.title}</div>
       <div class="m">${l.msg}</div>
       <div class="m" style="opacity:.55">${l.time}</div>
     </div>
   `).join("");
+
+  $log.innerHTML = `
+    <div class="logItem" style="border-style:dashed; opacity:.95;">
+      <div class="t">🧾 최근 공부 기록 (삭제 가능)</div>
+      <div class="m" style="opacity:.7;">잘못 입력한 건 여기서 삭제하면 XP/Gold/층/누적시간이 같이 되돌아가.</div>
+    </div>
+    ${sessionsHtml || `<div class="logItem"><div class="m" style="opacity:.7;">최근 기록 없음</div></div>`}
+    <div class="logItem" style="border-style:dashed; opacity:.95; margin-top:8px;">
+      <div class="t">📜 시스템 로그</div>
+    </div>
+    ${logsHtml}
+  `;
+
+  document.querySelectorAll("[data-del-session]").forEach(btn => {
+    btn.onclick = () => deleteSession(btn.getAttribute("data-del-session"));
+  });
 }
+
 
 /* Profile actions */
 $profileBtn.onclick = () => { renderProfileUI(); openOverlay($profileOverlay); };
 $closeProfileBtn.onclick = () => closeOverlay($profileOverlay);
+
+/* Subject management */
+if($addSubjectOpenBtn && $addSubjectRow){
+  $addSubjectOpenBtn.onclick = () => {
+    $addSubjectRow.classList.toggle("hidden");
+    if(!$addSubjectRow.classList.contains("hidden") && $newSubjectInput) $newSubjectInput.focus();
+  };
+}
+if($addSubjectBtn){
+  $addSubjectBtn.onclick = () => {
+    const name = ($newSubjectInput?.value || "").trim();
+    if(!name) return alert("과목 이름을 입력해줘.");
+    state.subjectsList = state.subjectsList || [];
+    if(state.subjectsList.includes(name)) return alert("이미 있는 과목이야.");
+    state.subjectsList.unshift(name);
+    state.subjects = state.subjects || {};
+    state.subjects[name] = state.subjects[name] || 0;
+    if($newSubjectInput) $newSubjectInput.value = "";
+    if($addSubjectRow) $addSubjectRow.classList.add("hidden");
+    persist();
+    renderSubjects();
+    if($subjectSelect) $subjectSelect.value = name;
+    renderStats(); renderLogs();
+  };
+}
+
 
 $recoverBtn.onclick = () => {
   const before = tryReadJson(PROFILES_KEY);
@@ -305,12 +407,31 @@ $resetBtn.onclick = () => {
 /* Study */
 $addStudyBtn.onclick = () => {
   if(state.reward.active) return setDropText("보상 모드 중");
-  const h=Number($hoursInput.value||0), m=Number($minutesInput.value||0), s=Number($secondsInput.value||0);
-  const total = h*3600 + m*60 + s;
-  const res = addStudySeconds(state, $subjectInput.value, total);
+  const h = Number($hoursInput.value || 0);
+  const m = Number($minutesInput.value || 0);
+  const s = Number($secondsInput.value || 0);
+  const total = (h*3600) + (m*60) + s;
+
+  const subject = ($subjectSelect && $subjectSelect.value) ? $subjectSelect.value : "미분류";
+  const res = addStudySeconds(state, subject, total);
   if(!res.ok) return alert(res.error);
+
+  const sid = genSessionId();
+  state.sessions.unshift({
+    id: sid,
+    time: nowStamp(),
+    day: state.day,
+    subject,
+    seconds: total,
+    xpGain: res.xpGain,
+    goldGain: res.goldGain,
+    floorsUp: res.floorsUp
+  });
+
   persist(); renderStats(); renderLogs();
-  $minutesInput.value=""; $secondsInput.value="";
+  if($hoursInput) $hoursInput.value = "0";
+  if($minutesInput) $minutesInput.value = "0";
+  if($secondsInput) $secondsInput.value = "0";
   maybeShowBoss21();
 };
 
@@ -431,7 +552,9 @@ let t=0; function loop(){ t++; tickReward(); renderCanvas(t); requestAnimationFr
 
 /* Init */
 renderStats(); renderLogs(); renderProfileUI();
-setDropText("v1.3.4 적용됨: 진행 복구 + 클릭 정상화 (필요시 프로필>복구)");
+renderSubjects();
+[$hoursInput,$minutesInput,$secondsInput].forEach(el=>{ ensureNumberInputZero(el); el && el.addEventListener("blur", ()=>ensureNumberInputZero(el)); });
+setDropText("v1.3.5 적용됨: 기록 삭제(되돌리기) + 과목 선택/추가 + 시간칸 자동 0");
 if(state.reward.active){ $rewardName.textContent = state.reward.label; openOverlay($rewardOverlay); }
 maybeShowBoss21();
 loop();

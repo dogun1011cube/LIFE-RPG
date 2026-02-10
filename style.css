@@ -69,3 +69,11 @@ canvas { width:100%; height:auto; background:#0f1426; border-radius:14px; border
 .profileLabel{ opacity:.75; font-weight:800; }
 .profileValue{ font-weight:1000; }
 .profileDanger{ margin-top:6px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+
+.subjectRow{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; }
+.addSubjectRow{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; }
+.logActions{ margin-top:8px; display:flex; gap:8px; justify-content:flex-end; }
+.smallBtn{ padding:8px 10px; border-radius:10px; font-size:12px; font-weight:900; }
+.smallBtn.danger{ background:#ff3a66; }
+.smallBtn.ghost{ background: transparent; border:1px solid rgba(255,255,255,.18); }

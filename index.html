@@ -30,9 +30,15 @@
         <h2>공부 입력</h2>
         <div class="form">
           <label>과목</label>
-          <input id="subjectInput" placeholder="예: 화학2, 물리1, KJSO" />
-
-          <label>시간 입력</label>
+          <div class="subjectRow">
+            <select id="subjectSelect"></select>
+            <button id="addSubjectOpenBtn" class="ghost" type="button">+ 과목</button>
+          </div>
+          <div id="addSubjectRow" class="addSubjectRow hidden">
+            <input id="newSubjectInput" placeholder="새 과목 이름 (예: 화학2)" />
+            <button id="addSubjectBtn" type="button">추가</button>
+          </div>
+    <label>시간 입력</label>
           <div class="hms">
             <div class="hmsItem">
               <div class="hmsLabel">시간</div>
