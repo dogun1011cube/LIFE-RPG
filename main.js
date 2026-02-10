@@ -1,8 +1,10 @@
-// LIFE RPG v1.3.1 — Fix: profile button present + working build
-// Reward: choose URL in shop, timer starts immediately, attempts to return at end.
-// NOTE: Browsers cannot forcibly close external tabs. We redirect main to blocked, and try to redirect the opened tab too.
+// LIFE RPG v1.3.2 — Stronger "open site" reliability + profile packs stable
+// Key notes:
+// - External tabs cannot be force-closed or force-focused by browser security.
+// - We keep the game tab running the timer; external site opens in a new tab (best effort).
+// - At end, game tab redirects to blocked, and we try to redirect the opened reward tab by window name.
 
-const PROFILES_KEY = "life_rpg_profiles_v131";
+const PROFILES_KEY = "life_rpg_profiles_v132";
 const LEGACY_KEY = "life_rpg_hardcore_v12";
 
 function p2(n){ return String(n).padStart(2,"0"); }
@@ -23,18 +25,18 @@ function defaultState(){
     totalSeconds: 0,
     reward: { active:false, label:null, url:null, endsAtMs:0, winName:null },
     block: { active:false, label:null, endedAtMs:0 },
-    logs: [{ time: nowStamp(), title: "새 프로필 생성", msg: "Day 1부터 시작 (v1.3.1)" }],
+    logs: [{ time: nowStamp(), title: "새 프로필 생성", msg: "Day 1부터 시작 (v1.3.2)" }],
     subjects: {},
     boss: { shown21:false, defeated21:false },
+    prefs: { lastRewardUrl: "" },
   };
 }
 
-function readProfiles(){
+function readPack(){
   const raw = localStorage.getItem(PROFILES_KEY);
   if(raw){ try { return JSON.parse(raw); } catch {} }
-  const pack = { activeId:null, profiles:{} };
 
-  // one-time legacy import
+  const pack = { activeId:null, profiles:{} };
   const legacyRaw = localStorage.getItem(LEGACY_KEY);
   if(legacyRaw){
     try{
@@ -43,16 +45,14 @@ function readProfiles(){
       pack.activeId = "legacy";
     } catch {}
   }
-
   if(!pack.activeId){
     pack.profiles["p1"] = { name:"기본", state: defaultState() };
     pack.activeId = "p1";
   }
-
   localStorage.setItem(PROFILES_KEY, JSON.stringify(pack));
   return pack;
 }
-function writeProfiles(pack){ localStorage.setItem(PROFILES_KEY, JSON.stringify(pack)); }
+function writePack(pack){ localStorage.setItem(PROFILES_KEY, JSON.stringify(pack)); }
 function genId(){ return "p" + Math.random().toString(16).slice(2,10); }
 
 function pushLog(state, title, msg){
@@ -67,7 +67,6 @@ function calcLevel(xp){
   if (xp >= 1000) return 2;
   return 1;
 }
-
 function floorEvents(f){
   const map = {
     4: "각성층: 보너스 XP + 스탯 상승(연출)",
@@ -78,7 +77,6 @@ function floorEvents(f){
   };
   return map[f] || null;
 }
-
 function formatHMS(seconds){
   const s = Math.max(0, Math.floor(seconds));
   const hh = Math.floor(s/3600);
@@ -86,15 +84,12 @@ function formatHMS(seconds){
   const ss = s%60;
   return `${hh}시간 ${mm}분 ${ss}초`;
 }
-
 function addStudySeconds(state, subject, seconds){
   if(!Number.isFinite(seconds) || seconds <= 0) return { ok:false, error:"시간은 1초 이상이어야 해." };
   subject = (subject || "").trim() || "미분류";
-
   if(state.dayStatus !== "ACTIVE"){
     pushLog(state, "⚠️ Day가 시작되지 않음", `"일어났어"로 Day 시작 추천 (현재 Day ${state.day})`);
   }
-
   const minutes = Math.floor(seconds/60);
   const xpGain = minutes;
   const goldGain = Math.floor(minutes/10);
@@ -115,12 +110,11 @@ function addStudySeconds(state, subject, seconds){
     const ev = floorEvents(f);
     if(ev) pushLog(state, `🌟 특수층 도달: ${f}F`, ev);
   }
-
   pushLog(state, `📚 공부 추가: ${subject}`, `${formatHMS(seconds)} → +XP ${xpGain} / +G ${goldGain} / +${floorsUp}F`);
-  return { ok:true, xpGain, goldGain, floorsUp };
+  return { ok:true };
 }
 
-/* ===== Reward helpers ===== */
+/* Reward helpers */
 function msToMMSS(ms){
   const s = Math.max(0, Math.floor(ms/1000));
   return `${p2(Math.floor(s/60))}:${p2(s%60)}`;
@@ -131,16 +125,34 @@ function normalizeUrl(url){
   if(!/^https?:\/\//i.test(url)) url = "https://" + url;
   return url;
 }
-function openRewardTab(url, winName){
-  if(!url) return null;
-  try{
-    return window.open(url, winName || "_blank", "noopener,noreferrer");
-  }catch{
-    return null;
-  }
+
+// Try multiple open strategies to bypass some blockers (still not guaranteed)
+function tryOpenUrl(url, winName){
+  if(!url) return { ok:false, reason:"NO_URL" };
+
+  // Strategy 1: direct window.open
+  let w = null;
+  try { w = window.open(url, winName || "_blank"); } catch {}
+  if(w) return { ok:true, win:w, used:"window.open" };
+
+  // Strategy 2: create an anchor and click (often works where open is blocked)
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = winName ? winName : "_blank";
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // can't know for sure if it opened, but treat as attempted
+    return { ok:true, win:null, used:"a.click" };
+  } catch {}
+
+  return { ok:false, reason:"BLOCKED" };
 }
 
-/* ===== UI ===== */
+/* UI refs */
 const $stats = document.getElementById("stats");
 const $log = document.getElementById("log");
 const $lastDrop = document.getElementById("lastDrop");
@@ -185,15 +197,18 @@ function openOverlay(el){ el.classList.remove("hidden"); }
 function closeOverlay(el){ el.classList.add("hidden"); }
 function setDropText(text){ $lastDrop.innerHTML = text || "최근 드랍 없음"; }
 
-let pack = readProfiles();
+let pack = readPack();
 let activeId = pack.activeId;
 let activeProfile = pack.profiles[activeId];
 let state = activeProfile.state;
 
+// ensure prefs exists for migrated states
+state.prefs = state.prefs || { lastRewardUrl:"" };
+
 function persist(){
   pack.profiles[activeId].state = state;
   pack.activeId = activeId;
-  writeProfiles(pack);
+  writePack(pack);
 }
 
 function ensureNotBlocked(){
@@ -207,7 +222,6 @@ function renderProfileUI(){
     `<option value="${id}" ${id===activeId?"selected":""}>${p.name}</option>`
   ).join("");
 }
-
 function renderStats(){
   const totalMin = Math.floor(state.totalSeconds/60);
   const totalText = `${formatHMS(state.totalSeconds)} (${totalMin}분 기준 XP/Gold 계산)`;
@@ -226,7 +240,6 @@ function renderStats(){
     <div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>
   `).join("");
 }
-
 function renderLogs(){
   $log.innerHTML = state.logs.slice(0,70).map(l => `
     <div class="logItem">
@@ -237,7 +250,7 @@ function renderLogs(){
   `).join("");
 }
 
-/* ===== Profile handlers ===== */
+/* Profile handlers */
 $profileBtn.onclick = () => { renderProfileUI(); openOverlay($profileOverlay); };
 $closeProfileBtn.onclick = () => closeOverlay($profileOverlay);
 
@@ -248,7 +261,8 @@ $switchProfileBtn.onclick = () => {
   activeId = id;
   activeProfile = pack.profiles[activeId];
   state = activeProfile.state;
-  writeProfiles(pack);
+  state.prefs = state.prefs || { lastRewardUrl:"" };
+  writePack(pack);
   location.href = "index.html";
 };
 
@@ -258,7 +272,7 @@ $createProfileBtn.onclick = () => {
   const id = genId();
   pack.profiles[id] = { name, state: defaultState() };
   pack.activeId = id;
-  writeProfiles(pack);
+  writePack(pack);
   location.href = "index.html";
 };
 
@@ -269,11 +283,11 @@ $deleteProfileBtn.onclick = () => {
   delete pack.profiles[activeId];
   const nextId = Object.keys(pack.profiles)[0];
   pack.activeId = nextId;
-  writeProfiles(pack);
+  writePack(pack);
   location.href = "index.html";
 };
 
-/* ===== Day buttons ===== */
+/* Day buttons */
 $wakeBtn.onclick = () => {
   if(state.reward.active) return setDropText("보상 모드 중");
   state.day += 1;
@@ -281,14 +295,12 @@ $wakeBtn.onclick = () => {
   pushLog(state, "🌅 Day 시작", `Day ${state.day} 시작`);
   persist(); renderStats(); renderLogs();
 };
-
 $endDayBtn.onclick = () => {
   if(state.reward.active) return setDropText("보상 모드 중");
   state.dayStatus = "COMPLETED";
   pushLog(state, "✅ Day 마감", `Day ${state.day} 종료`);
   persist(); renderStats(); renderLogs();
 };
-
 $resetBtn.onclick = () => {
   if(!confirm(`현재 프로필 "${activeProfile.name}" 진행을 초기화할까요? (복구 불가)`)) return;
   state = defaultState();
@@ -297,27 +309,23 @@ $resetBtn.onclick = () => {
   location.href = "index.html";
 };
 
-/* ===== Study add ===== */
+/* Study add */
 $addStudyBtn.onclick = () => {
   if(state.reward.active) return setDropText("보상 모드 중");
-
   const h = Number($hoursInput.value || 0);
   const m = Number($minutesInput.value || 0);
   const s = Number($secondsInput.value || 0);
   const total = (h*3600) + (m*60) + s;
-
   const subject = $subjectInput.value;
   const res = addStudySeconds(state, subject, total);
   if(!res.ok) return alert(res.error);
-
   persist(); renderStats(); renderLogs();
-
   $minutesInput.value = "";
   $secondsInput.value = "";
   maybeShowBoss21();
 };
 
-/* ===== Shop / Reward ===== */
+/* Shop / Reward */
 function activateBlockAndRedirect(label){
   state.block = { active:true, label: label || "-", endedAtMs: Date.now() };
   persist();
@@ -326,7 +334,6 @@ function activateBlockAndRedirect(label){
 
 function startReward(minutes, price, url){
   if(state.reward.active) return setDropText("이미 보상 모드 중");
-
   if(state.gold < price){
     pushLog(state, "💸 골드 부족", `보상 ${minutes}분 구매 실패 (필요 ${price}G)`);
     persist(); renderLogs(); setDropText("골드 부족");
@@ -339,13 +346,22 @@ function startReward(minutes, price, url){
   const winName = "life_rpg_reward_" + Date.now();
 
   state.reward = { active:true, label, url, endsAtMs, winName };
+  state.prefs.lastRewardUrl = url || state.prefs.lastRewardUrl || "";
   pushLog(state, "🛒 상점 구매", `${label} (-${price}G) / 타이머 시작`);
   persist(); renderStats(); renderLogs();
 
-  // try opening immediately (popup blockers may still block)
-  const w = openRewardTab(url, winName);
-  if(!w && url){
-    pushLog(state, "⚠️ 팝업 차단", "보상 탭이 열리지 않았어. '사이트 열기'를 눌러줘.");
+  // Attempt to open immediately (may be blocked)
+  if(url){
+    const r = tryOpenUrl(url, winName);
+    if(!r.ok){
+      pushLog(state, "⚠️ 탭 열기 실패", "팝업 차단/확장프로그램이 막았을 수 있어. '사이트 열기(재시도)'를 눌러줘.");
+      persist(); renderLogs();
+    } else {
+      pushLog(state, "✅ 보상 탭 열기 시도", `방법: ${r.used}`);
+      persist(); renderLogs();
+    }
+  } else {
+    pushLog(state, "ℹ️ URL 없음", "상점에서 URL을 입력하면 바로 열 수 있어.");
     persist(); renderLogs();
   }
 
@@ -369,12 +385,11 @@ function tickReward(){
   if(left <= 0){
     const label = state.reward.label;
     const winName = state.reward.winName;
-    // end reward
     pushLog(state, "⏰ 보상 시간 종료", `${label} 종료 → blocked로 이동`);
     state.reward = { active:false, label:null, url:null, endsAtMs:0, winName:null };
     persist();
 
-    // Best effort: try to redirect the opened reward tab too
+    // best effort: redirect the named window (works only if same tab name exists and isn't blocked by cross-origin restrictions)
     try{
       if(winName){
         const w = window.open("", winName);
@@ -389,6 +404,8 @@ function tickReward(){
 $shopBtn.onclick = () => {
   if(state.reward.active){ openOverlay($rewardOverlay); return; }
   $shopInfo.textContent = `현재 Gold: ${state.gold}G`;
+  // preload last URL
+  $rewardUrlInput.value = state.prefs.lastRewardUrl || "";
   openOverlay($shopOverlay);
 };
 $closeShopBtn.onclick = () => closeOverlay($shopOverlay);
@@ -398,22 +415,28 @@ document.querySelectorAll(".shopItem").forEach(btn => {
     const minutes = Number(btn.dataset.min);
     const price = Number(btn.dataset.price);
     const url = normalizeUrl($rewardUrlInput.value);
-    startReward(minutes, price, url);
     closeOverlay($shopOverlay);
+    startReward(minutes, price, url);
   };
 });
 
 $closeRewardBtn.onclick = () => closeOverlay($rewardOverlay);
 $openRewardSiteBtn.onclick = () => {
   if(!state.reward.active) return;
-  const url = state.reward.url;
-  if(!url) return alert("상점에서 URL을 입력하면 바로 열 수 있어.");
-  const w = openRewardTab(url, state.reward.winName || "_blank");
-  if(!w) alert("팝업이 차단됐어. 주소창 오른쪽에서 팝업 허용 후 다시 눌러줘.");
+  const url = state.reward.url || state.prefs.lastRewardUrl || "";
+  if(!url) return alert("상점에서 URL을 입력해줘. 예: https://www.youtube.com");
+  const r = tryOpenUrl(url, state.reward.winName || "_blank");
+  if(!r.ok){
+    alert("새 탭이 열리지 않았어.\n1) 팝업 허용\n2) 광고차단/확장프로그램 OFF\n3) InPrivate(시크릿)로 테스트\n후 다시 눌러줘.");
+    pushLog(state, "❌ 탭 열기 실패", "팝업/확장프로그램 차단 가능성");
+  } else {
+    pushLog(state, "✅ 사이트 열기(재시도)", `방법: ${r.used}`);
+  }
+  persist(); renderLogs();
 };
 $stopRewardBtn.onclick = stopReward;
 
-/* ===== Boss 21F ===== */
+/* Boss 21F */
 function maybeShowBoss21(){
   if(state.floor >= 21 && !state.boss.shown21 && !state.boss.defeated21){
     state.boss.shown21 = true;
@@ -433,16 +456,13 @@ function defeatBoss21(){
 }
 $bossFightBtn.onclick = defeatBoss21;
 
-/* ===== Pixel Canvas Rendering ===== */
+/* Pixel canvas */
 const ctx = document.getElementById("gameCanvas").getContext("2d");
 const PX = 4;
 const GW = 520 / PX;
 const GH = 520 / PX;
 
-function drawPixel(x,y,color){
-  ctx.fillStyle = color;
-  ctx.fillRect(x*PX, y*PX, PX, PX);
-}
+function drawPixel(x,y,color){ ctx.fillStyle = color; ctx.fillRect(x*PX, y*PX, PX, PX); }
 function drawCircle(cx, cy, r, palette){
   for(let y=-r; y<=r; y++){
     for(let x=-r; x<=r; x++){
@@ -545,7 +565,7 @@ function loop(){
 renderStats();
 renderLogs();
 renderProfileUI();
-setDropText("v1.3.1 적용됨: 프로필 버튼 + 보상 URL 입력 + 종료 시 blocked 이동");
+setDropText("v1.3.2 적용됨: 사이트 열기 신뢰성 강화 + URL 저장");
 if(state.reward.active){
   $rewardName.textContent = state.reward.label;
   openOverlay($rewardOverlay);

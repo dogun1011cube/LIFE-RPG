@@ -22,51 +22,20 @@
       <section class="panel">
         <h2>상태</h2>
         <div id="blockedInfo" class="drop"></div>
-        <div class="hint">
-          돌아가기를 누르면 차단이 해제되고 게임 화면으로 돌아가.
-        </div>
+        <div class="hint">돌아가기를 누르면 차단이 해제되고 게임 화면으로 돌아가.</div>
       </section>
     </main>
   </div>
 
   <script>
-    const PROFILES_KEY = "life_rpg_profiles_v131";
-    const LEGACY_KEY = "life_rpg_hardcore_v12";
-
-    function defaultState(){
-      return { day:1, dayStatus:"INACTIVE", level:1, xp:0, gold:0, floor:0, battleCount:0, totalSeconds:0,
-        reward:{active:false,label:null,url:null,endsAtMs:0,winName:null}, block:{active:false,label:null,endedAtMs:0},
-        logs:[], subjects:{}, boss:{shown21:false, defeated21:false} };
-    }
-
-    function readProfiles(){
-      const raw = localStorage.getItem(PROFILES_KEY);
-      if(raw){
-        try { return JSON.parse(raw); } catch {}
-      }
-      const pack = { activeId:null, profiles:{} };
-      const legacy = localStorage.getItem(LEGACY_KEY);
-      if(legacy){
-        try{
-          const st = JSON.parse(legacy);
-          pack.profiles["legacy"] = { name:"기존(자동이전)", state: st };
-          pack.activeId = "legacy";
-        } catch {}
-      }
-      if(!pack.activeId){
-        pack.profiles["p1"] = { name:"기본", state: defaultState() };
-        pack.activeId = "p1";
-      }
-      localStorage.setItem(PROFILES_KEY, JSON.stringify(pack));
-      return pack;
-    }
-    function writeProfiles(p){ localStorage.setItem(PROFILES_KEY, JSON.stringify(p)); }
-
-    const pack = readProfiles();
-    const prof = pack.profiles[pack.activeId];
+    const PROFILES_KEY = "life_rpg_profiles_v132";
+    function readPack(){ try { return JSON.parse(localStorage.getItem(PROFILES_KEY)||""); } catch { return null; } }
+    function writePack(p){ localStorage.setItem(PROFILES_KEY, JSON.stringify(p)); }
+    const pack = readPack();
+    const prof = pack?.profiles?.[pack?.activeId];
     const s = prof?.state;
-
     const box = document.getElementById("blockedInfo");
+
     if(!s || !s.block?.active){
       box.innerHTML = "<b>차단 상태가 아니야.</b>";
     } else {
@@ -77,10 +46,10 @@
     }
 
     document.getElementById("backBtn").onclick = () => {
-      const p2 = readProfiles();
-      const a = p2.profiles[p2.activeId];
+      const p2 = readPack();
+      const a = p2?.profiles?.[p2?.activeId];
       if(a?.state?.block) a.state.block.active = false;
-      writeProfiles(p2);
+      writePack(p2);
       location.href = "index.html";
     };
   </script>
