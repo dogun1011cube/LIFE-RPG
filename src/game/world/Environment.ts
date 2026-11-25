@@ -216,9 +216,9 @@ export class Environment {
     this.sky.visible = !this.interior;
     if (this.interior) {
       this.sun.intensity = 0;
-      this.hemi.color.setHex(0x5a6385);
-      this.hemi.groundColor.setHex(0x2a2622);
-      this.hemi.intensity = 0.55;
+      this.hemi.color.setHex(0x6b7394);
+      this.hemi.groundColor.setHex(0x3a332c);
+      this.hemi.intensity = 0.95;
       this.fog.color.copy(this.black);
       this.fog.near = 6;
       this.fog.far = 48;

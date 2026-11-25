@@ -76,7 +76,7 @@ export class Dungeon {
     this.group.name = 'dungeon';
     this.group.visible = false;
     for (const r of ROOMS) for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) this.open.add(`${x},${z}`);
-    this.entryPos = this.w(0, 3);
+    this.entryPos = this.w(0, 6.5);
     this.buildShell();
     const { gate, collider } = this.buildGate();
     this.gate = gate;
@@ -231,14 +231,15 @@ export class Dungeon {
     flame.group.position.set(p.x + faceX * 0.1, p.y + 0.25, p.z + faceZ * 0.1);
     this.group.add(flame.group);
     this.flames.push(flame);
-    this.lights.push({ pos: new THREE.Vector3(p.x + faceX * 0.6, p.y + 0.4, p.z + faceZ * 0.6), color: 0xff9a4a, intensity: 14, distance: 14 });
+    this.lights.push({ pos: new THREE.Vector3(p.x + faceX * 0.6, p.y + 0.4, p.z + faceZ * 0.6), color: 0xff9a4a, intensity: 24, distance: 18 });
   }
 
-  private portal(id: string, lx: number, lz: number, label: string) {
+  private portal(id: string, lx: number, lz: number, label: string, rotY = 0) {
     const ringMat = new THREE.MeshStandardMaterial({ color: 0x5fe0f0, emissive: 0x2ab8d8, emissiveIntensity: 1.6, roughness: 0.3 });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.12, 8, 28), ringMat);
     const p = this.w(lx, lz, 1.4);
     ring.position.copy(p);
+    ring.rotation.y = rotY;
     ring.name = 'portalRing';
     this.group.add(ring);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x5fe0f0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -312,7 +313,7 @@ export class Dungeon {
 
   private buildProps() {
     // entry hall
-    this.portal('dportal_entry', 0, 1.2, '묘소에서 나가기');
+    this.portal('dportal_entry', -5.2, 3, '묘소에서 나가기', Math.PI / 2);
     this.torch(-5.7, 6, 1, 0);
     this.torch(5.7, 6, -1, 0);
     const slab = new THREE.Mesh(boxGeo(1.2, 1.6, 0.25, 2), new THREE.MeshStandardMaterial({ color: 0x7d776c, roughness: 0.95 }));
@@ -346,6 +347,21 @@ export class Dungeon {
     this.torch(9.7, 56, -1, 0);
     this.torch(-9.7, 64, 1, 0);
     this.torch(9.7, 64, -1, 0);
+    // braziers light the boss chamber
+    for (const x of [-4, 4]) {
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.3, 0.5, 10), new THREE.MeshStandardMaterial({ color: 0x3a3028, metalness: 0.5, roughness: 0.5 }));
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 1.1, 8), new THREE.MeshStandardMaterial({ color: 0x2a2420, metalness: 0.4 }));
+      const p = this.w(x, 57);
+      stand.position.set(p.x, p.y + 0.55, p.z);
+      bowl.position.set(p.x, p.y + 1.25, p.z);
+      this.group.add(stand, bowl);
+      const flame = createFlame(1.1);
+      flame.group.position.set(p.x, p.y + 1.4, p.z);
+      this.group.add(flame.group);
+      this.flames.push(flame);
+      this.lights.push({ pos: new THREE.Vector3(p.x, p.y + 2.4, p.z), color: 0xffa050, intensity: 30, distance: 22 });
+      this.addBoxCollider(x - 0.5, 0, 56.5, x + 0.5, 1.5, 57.5);
+    }
     // sarcophagus
     const sarc = new THREE.Mesh(boxGeo(2.4, 1.0, 1.2, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTexture('#8a847a'), roughness: 0.9 }));
     sarc.position.copy(this.w(0, 64, 0.5));
@@ -446,7 +462,7 @@ export class Dungeon {
       }
     }
     this.group.traverse((o) => {
-      if (o.name === 'portalRing') o.rotation.z += dt * 0.6;
+      if (o.name === 'portalRing') o.rotateZ(dt * 0.6);
     });
   }
 }

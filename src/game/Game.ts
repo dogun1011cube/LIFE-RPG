@@ -643,7 +643,7 @@ export class Game {
 
     this.particles.update(dt);
     this.floatText.update(dt, this.camera);
-    const obstacles = [this.building.group, this.landmarks.group];
+    const obstacles = this.inDungeon ? [this.dungeon.group] : [this.building.group, this.landmarks.group];
     this.cameraRig.buildMode = this.building.active;
     this.cameraRig.update(dt, pp, obstacles, this.building.active ? 0.9 : 0.55);
     if (!this.inDungeon) this.grass.update(pp);
