@@ -1472,6 +1472,7 @@ export class Game {
     let comfort = 0;
     if (!this.inDungeon && this.building.pieces.size > 0) {
       this.upRay.set(new THREE.Vector3(pp.x, pp.y + 1.7, pp.z), new THREE.Vector3(0, 1, 0));
+      this.upRay.camera = this.camera; // sprites (flame glows) need a camera to be raycast
       this.upRay.far = 9;
       indoors = this.upRay.intersectObject(this.building.group, true).some((h) => (h.object as THREE.Mesh).isMesh);
       const kinds = new Set<string>();

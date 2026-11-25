@@ -51,8 +51,9 @@ export function touches(a: BoxCollider[], b: BoxCollider[], eps = 0.12): boolean
 export function supportFactor(support: BoxCollider[], piece: BoxCollider[], material: BuildMaterial): number {
   const s = bounds(support);
   const p = bounds(piece);
-  // resting on top: the supporter's top is at (or just below) the piece's bottom
-  const fromBelow = s.maxY <= p.minY + 0.35;
+  // resting on top: the supporter's top is at (or just below) the piece's bottom AND the supporter
+  // reaches lower than the piece (two slabs side by side at the same height only support each other sideways)
+  const fromBelow = s.maxY <= p.minY + 0.35 && s.minY < p.minY - 0.1;
   return fromBelow ? VERTICAL[material] : HORIZONTAL[material];
 }
 
