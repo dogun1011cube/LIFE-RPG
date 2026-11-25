@@ -724,6 +724,7 @@ export class Game {
       } else {
         const list = b.available(b.category);
         for (let k = 1; k <= 9; k++) if (i.wasPressed(`Digit${k}`) && list[k - 1]) b.select(list[k - 1].id);
+        if (i.wasPressed('Digit0') && list[9]) b.select(list[9].id);
       }
       if (i.wasPressed('KeyE') && this.ui.prompt && this.ui.prompt.kind !== 'node') this.ui.prompt.run();
       return;

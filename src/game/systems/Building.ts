@@ -38,7 +38,7 @@ export interface Placement {
 }
 
 export type PaletteCategory = BuildCategory | 'blueprint';
-const CATEGORIES: BuildCategory[] = ['structure', 'stone', 'marble', 'fortress', 'utility', 'decor'];
+const CATEGORIES: BuildCategory[] = ['structure', 'stone', 'marble', 'fortress', 'path', 'utility', 'decor'];
 const EDGE_HEIGHT: Record<string, number> = { wall: L, doorway: L, window: L, fence: 1.15, gable: 1.25, door: 2.1, castle_wall: 5 };
 const MATERIAL_ORDER = ['wood', 'stone', 'marble'];
 

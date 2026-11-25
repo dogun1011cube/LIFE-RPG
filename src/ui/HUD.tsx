@@ -315,12 +315,8 @@ function BuildBar() {
   const b = game.building;
   const cats = b.categoriesAvailable();
   const inv = game.state.player.inventory;
-  const pl = b.placement;
   const sel = BUILDABLE_BY_ID[b.selected];
   const variants = b.blueprintMode ? [] : b.materialVariants();
-  const stab = b.ghostStability;
-  const hoverStab = b.hoverPiece ? (b.stability.get(b.hoverPiece.state.id) ?? 0) : null;
-  const stabCls = (v: number) => (v >= 0.6 ? 'ok' : v >= 0.3 ? 'mid' : 'bad');
   return (
     <div className="build-bar">
       <div className="build-head">
@@ -428,6 +424,20 @@ function BuildBar() {
           <kbd>B</kbd> 종료
         </span>
       </div>
+    </div>
+  );
+}
+
+/** Messages near the crosshair while building (kept outside the transformed build bar so fixed positioning works). */
+function BuildOverlay() {
+  const game = useGame();
+  const b = game.building;
+  const pl = b.placement;
+  const stab = b.ghostStability;
+  const hoverStab = b.hoverPiece ? (b.stability.get(b.hoverPiece.state.id) ?? 0) : null;
+  const stabCls = (v: number) => (v >= 0.6 ? 'ok' : v >= 0.3 ? 'mid' : 'bad');
+  return (
+    <>
       {!b.blueprintMode && pl && pl.valid && <div className={`build-stab ${stabCls(stab)}`}>안정도 {Math.round(stab * 100)}%</div>}
       {!b.blueprintMode && pl && !pl.valid && <div className="build-reason">{pl.reason}</div>}
       {b.blueprintMode && b.bpPlacement && !b.bpPlacement.valid && <div className="build-reason">{b.bpPlacement.reason}</div>}
@@ -437,7 +447,7 @@ function BuildBar() {
           대상: {b.hoverPiece.def.name} · <span className={stabCls(hoverStab ?? 0)}>안정도 {Math.round((hoverStab ?? 0) * 100)}%</span>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -499,6 +509,7 @@ export function HUD() {
       <div className={`crosshair ${game.building.active ? 'build' : ''} ${blocking ? 'block' : ''}`} />
       <Prompt />
       {game.building.active ? <BuildBar /> : <Hotbar />}
+      {game.building.active && <BuildOverlay />}
       {!game.building.active && <KeyHints />}
       {showClickHint && <div className="click-hint">화면을 클릭하면 마우스로 시점을 조작합니다</div>}
       {game.settings.showFps && <div className="fps">{game.ui.fps} FPS</div>}

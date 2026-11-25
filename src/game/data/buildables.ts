@@ -1,7 +1,7 @@
 import type { Cost, StationId, UnlockRule } from './recipes';
 
 export type SnapMode = 'cell' | 'edge' | 'corner' | 'free';
-export type BuildCategory = 'structure' | 'stone' | 'marble' | 'fortress' | 'utility' | 'decor';
+export type BuildCategory = 'structure' | 'stone' | 'marble' | 'fortress' | 'path' | 'utility' | 'decor';
 export type BuildShape =
   | 'foundation'
   | 'floor'
@@ -57,6 +57,7 @@ export const BUILD_CATEGORY_NAME: Record<BuildCategory, string> = {
   stone: '석조 구조',
   marble: '대리석',
   fortress: '요새',
+  path: '길·다리',
   utility: '시설',
   decor: '장식',
 };
@@ -78,7 +79,7 @@ export const BUILDABLES: BuildableDef[] = [
   { id: 'wood_gable', name: '박공 벽', desc: '지붕 아래 삼각형 공간을 막는 벽.', category: 'structure', shape: 'gable', material: 'wood', snap: 'edge', cost: [{ item: 'wood', qty: 3 }], unlock: START },
   { id: 'wood_stairs', name: '나무 계단', desc: '한 층 높이를 오르는 계단.', category: 'structure', shape: 'stairs', material: 'wood', snap: 'cell', cost: [{ item: 'wood', qty: 6 }], unlock: START },
   { id: 'wood_pillar', name: '나무 기둥', desc: '격자의 모서리에 세우는 기둥.', category: 'structure', shape: 'pillar', material: 'wood', snap: 'corner', cost: [{ item: 'wood', qty: 2 }], unlock: START },
-  { id: 'wood_fence', name: '나무 울타리', desc: '낮은 울타리. 영역을 구분한다.', category: 'structure', shape: 'fence', material: 'wood', snap: 'edge', cost: [{ item: 'wood', qty: 2 }], unlock: START },
+  { id: 'wood_fence', name: '나무 울타리', desc: '낮은 울타리. 영역을 구분한다.', category: 'decor', shape: 'fence', material: 'wood', snap: 'edge', cost: [{ item: 'wood', qty: 2 }], unlock: START },
   // Stone structure
   { id: 'stone_foundation', name: '석조 토대', desc: '돌로 쌓은 튼튼한 기초.', category: 'stone', shape: 'foundation', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 8 }], unlock: STONE },
   { id: 'stone_floor', name: '석조 바닥', desc: '돌판으로 깐 바닥.', category: 'stone', shape: 'floor', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 5 }], unlock: STONE },
@@ -87,9 +88,9 @@ export const BUILDABLES: BuildableDef[] = [
   { id: 'stone_window', name: '석조 창문 벽', desc: '창이 있는 석조 벽.', category: 'stone', shape: 'window', material: 'stone', snap: 'edge', cost: [{ item: 'stone', qty: 5 }], unlock: STONE },
   { id: 'stone_stairs', name: '석조 계단', desc: '돌로 만든 계단.', category: 'stone', shape: 'stairs', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 7 }], unlock: STONE },
   { id: 'stone_pillar', name: '석조 기둥', desc: '돌기둥.', category: 'stone', shape: 'pillar', material: 'stone', snap: 'corner', cost: [{ item: 'stone', qty: 3 }], unlock: STONE },
-  { id: 'wood_bridge', name: '나무 다리', desc: '폭 2m, 길이 6m의 판자 다리. 양쪽 끝 중 한쪽만 땅에 닿아도 설치할 수 있다.', category: 'structure', shape: 'bridge', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 16 }, { item: 'fiber', qty: 6 }], unlock: STONE },
-  { id: 'road_dirt', name: '흙길', desc: '지형을 따라 깔리는 길. 길 위에서는 이동 속도가 빨라진다.', category: 'structure', shape: 'road', material: 'wood', snap: 'cell', cost: [{ item: 'stone', qty: 1 }], unlock: START },
-  { id: 'road_stone', name: '돌길', desc: '단단한 돌을 깐 길. 길 위에서는 이동 속도가 빨라진다.', category: 'stone', shape: 'road', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 3 }], unlock: STONE },
+  { id: 'wood_bridge', name: '나무 다리', desc: '폭 2m, 길이 6m의 판자 다리. 양쪽 끝 중 한쪽만 땅에 닿아도 설치할 수 있다.', category: 'path', shape: 'bridge', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 16 }, { item: 'fiber', qty: 6 }], unlock: STONE },
+  { id: 'road_dirt', name: '흙길', desc: '지형을 따라 깔리는 길. 길 위에서는 이동 속도가 빨라진다.', category: 'path', shape: 'road', material: 'wood', snap: 'cell', cost: [{ item: 'stone', qty: 1 }], unlock: START },
+  { id: 'road_stone', name: '돌길', desc: '단단한 돌을 깐 길. 길 위에서는 이동 속도가 빨라진다.', category: 'path', shape: 'road', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 3 }], unlock: STONE },
   // Marble (dressed stone bricks)
   { id: 'marble_foundation', name: '대리석 토대', desc: '정교하게 다듬은 흰 돌의 기초. 매우 튼튼하다.', category: 'marble', shape: 'foundation', material: 'marble', snap: 'cell', cost: [{ item: 'stone_brick', qty: 8 }], unlock: MARBLE },
   { id: 'marble_floor', name: '대리석 바닥', desc: '광택이 나는 바닥.', category: 'marble', shape: 'floor', material: 'marble', snap: 'cell', cost: [{ item: 'stone_brick', qty: 5 }], unlock: MARBLE },
