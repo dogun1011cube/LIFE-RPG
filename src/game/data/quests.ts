@@ -9,7 +9,9 @@ export type Objective =
   | { type: 'discover'; location: string }
   | { type: 'discover_count'; count: number }
   | { type: 'level'; level: number }
-  | { type: 'eat'; count: number };
+  | { type: 'eat'; count: number }
+  | { type: 'counter'; key: string; count: number; label: string } // generic event counter (e.g. parries, dungeon gate)
+  | { type: 'skills_learned'; count: number };
 
 export interface QuestDef {
   id: string;
@@ -98,8 +100,8 @@ export const QUESTS: QuestDef[] = [
   {
     id: 's_explorer', title: '섬의 탐험가', chain: 'side', requires: [],
     summary: '섬의 장소들을 발견하자.',
-    description: '섬에는 여섯 곳의 특별한 장소가 있다. 모두 찾아내 지도를 완성하자.',
-    objectives: [{ type: 'discover_count', count: 6 }],
+    description: '섬에는 일곱 곳의 특별한 장소가 있다. 모두 찾아내 지도를 완성하자.',
+    objectives: [{ type: 'discover_count', count: 7 }],
     rewards: { xp: 250, items: [{ item: 'health_potion', qty: 2 }] },
   },
   {
@@ -129,6 +131,31 @@ export const QUESTS: QuestDef[] = [
     description: '고원의 바위 골렘은 느리지만 강력하다. 붉은 원이 나타나면 그 밖으로 피하라.',
     objectives: [{ type: 'kill', enemy: 'golem', count: 2 }],
     rewards: { xp: 180, items: [{ item: 'crystal', qty: 1 }] },
+  },
+  {
+    id: 's_skill', title: '첫 번째 기술', chain: 'side', requires: ['q_hunt'],
+    summary: '스킬을 하나 배우자.',
+    description: '레벨이 오르면 스킬 포인트를 얻는다. [K]로 스킬 창을 열어 전투, 생존, 비전 중 원하는 기술을 배우자. 액티브 스킬은 R, T, G, V 키에 등록된다.',
+    objectives: [{ type: 'skills_learned', count: 1 }],
+    rewards: { xp: 60 },
+  },
+  {
+    id: 's_parry', title: '완벽한 방어', chain: 'side', requires: ['q_hunt'],
+    summary: '적의 공격을 패링하자.',
+    description: '[F]를 누르고 있으면 막기 자세를 취한다. 적의 공격이 닿기 직전에 막기 시작하면 패링이 되어 적이 크게 비틀거리고, 다음 공격이 치명타가 된다.',
+    objectives: [{ type: 'counter', key: 'parry', count: 3, label: '패링 성공' }],
+    rewards: { xp: 90, items: [{ item: 'health_potion', qty: 1 }] },
+  },
+  {
+    id: 's_crypt', title: '잊혀진 묘소', chain: 'side', requires: ['q_shelter'],
+    summary: '서쪽 숲의 지하 묘소를 탐험하자.',
+    description: '섬 서쪽 언덕에 오래된 묘소가 있다고 한다. 입구의 경고문이 철문을 여는 방법을 알려줄 것이다. 묘지기는 해골을 불러내니 서두르지 말고 싸워라.',
+    objectives: [
+      { type: 'discover', location: 'crypt_entrance' },
+      { type: 'counter', key: 'crypt:gate', count: 1, label: '묘소의 철문 열기' },
+      { type: 'kill', enemy: 'crypt_keeper', count: 1 },
+    ],
+    rewards: { xp: 400, items: [{ item: 'mana_potion', qty: 2 }] },
   },
 ];
 

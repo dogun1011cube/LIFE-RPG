@@ -34,10 +34,14 @@ import { readSave, writeSave, listSaves, deleteSave, latestSlot } from './system
 import { renderMapImage } from './systems/MapRenderer';
 import { angleDiff } from './core/math';
 import { groundAt } from './entities/physics';
+import { SKILLS, SKILL_BY_ID, SKILL_KEYS } from './data/skills';
+import { Dungeon, DUNGEON_ORIGIN, type DungeonInteractable } from './world/Dungeon';
+import { rank, SKILL_POINTS_PER_LEVEL } from './systems/Stats';
+import type { Projectile } from './entities/Projectiles';
 
 export type Screen = 'loading' | 'menu' | 'playing';
 export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload';
-export type MenuTab = 'inventory' | 'crafting' | 'quests' | 'map';
+export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map';
 
 export interface Interaction {
   label: string;
@@ -72,12 +76,16 @@ function freshState(seed: number): GameState {
     yaw: Math.PI,
     hp: 100,
     stamina: 100,
+    mana: 40,
     level: 1,
     xp: 0,
     attrPoints: 0,
-    attrs: { str: 0, vit: 0, end: 0, agi: 0, skl: 0 },
+    attrs: { str: 0, vit: 0, end: 0, agi: 0, skl: 0, int: 0 },
+    skillPoints: 0,
+    skills: {},
+    skillBar: [null, null, null, null],
     inventory: Array.from({ length: INVENTORY_SIZE }, () => null),
-    equipment: { weapon: 'wooden_club', armor: null },
+    equipment: { weapon: 'wooden_club', armor: null, trinket: null },
     hotbar: ['berry', null, null, null],
     spawn: null,
     buffs: [],
@@ -152,6 +160,9 @@ export class Game {
   quests!: QuestSystem;
   discovery!: DiscoverySystem;
   mapImage: HTMLCanvasElement | null = null;
+  dungeon!: Dungeon;
+  /** True while the player is inside the crypt interior. */
+  inDungeon = false;
 
   private timer = new THREE.Timer();
   private lights: THREE.PointLight[] = [];
@@ -245,6 +256,8 @@ export class Game {
       this.lights.push(l);
       this.scene.add(l);
     }
+    this.dungeon = new Dungeon(this.colliders);
+    this.scene.add(this.dungeon.group);
     await this.step('지도를 그리는 중...', 0.9);
     this.mapImage = renderMapImage(this.terrain, 512);
     this.applySettings();
@@ -345,7 +358,23 @@ export class Game {
     }
     const fresh = freshState(file.state.world.seed);
     // merge onto defaults so older saves missing fields still work
-    this.state = { ...fresh, ...file.state, player: { ...fresh.player, ...file.state.player }, quests: { ...fresh.quests, ...file.state.quests } };
+    const sp = file.state.player;
+    this.state = {
+      ...fresh,
+      ...file.state,
+      player: {
+        ...fresh.player,
+        ...sp,
+        attrs: { ...fresh.player.attrs, ...sp.attrs },
+        equipment: { ...fresh.player.equipment, ...sp.equipment },
+        skills: { ...(sp.skills ?? {}) },
+        skillBar: sp.skillBar ?? [null, null, null, null],
+        // saves from before the skill system get the points they would have earned
+        skillPoints: sp.skillPoints ?? Math.max(0, (sp.level ?? 1) - 1) * SKILL_POINTS_PER_LEVEL,
+        mana: sp.mana ?? 40,
+      },
+      quests: { ...fresh.quests, ...file.state.quests },
+    };
     if (this.state.player.inventory.length < INVENTORY_SIZE) {
       while (this.state.player.inventory.length < INVENTORY_SIZE) this.state.player.inventory.push(null);
     }
@@ -365,6 +394,9 @@ export class Game {
 
   private applyState() {
     const st = this.state;
+    if (this.inDungeon) this.setDungeonVisuals(false);
+    this.inDungeon = false;
+    this.dungeon.reset();
     if (st.world.seed !== this.terrain.seed) console.warn('Save uses a different world seed; loading on the current world.');
     this.env.time = st.world.time;
     this.env.day = st.world.day;
@@ -405,7 +437,15 @@ export class Game {
     st.pieces = this.building.serialize();
     st.depletedNodes = this.resources.getDepleted();
     st.explored = this.discovery.serializeExplored();
-    return JSON.parse(JSON.stringify(st)) as GameState;
+    const snap = JSON.parse(JSON.stringify(st)) as GameState;
+    if (this.inDungeon) {
+      // never persist an interior position: reloading puts you at the crypt entrance
+      const e = this.cryptExterior();
+      snap.player.x = e.x;
+      snap.player.y = e.y;
+      snap.player.z = e.z;
+    }
+    return snap;
   }
 
   saveGame(silent = false): boolean {
@@ -547,6 +587,7 @@ export class Game {
         this.player.body.radius,
         (p) => this.damagePlayer(p.damage, p.pos, { knock: 3, slow: p.slow }),
         (pos, color) => this.particles.burst(pos, color, 8, 2.5, 0.08, 2),
+        (p) => this.playerProjectileHit(p),
       );
       const collected = this.pickups.update(simDt, pp, (p) => !this.player.dead && Inv.space(this.state.player.inventory, p.id) > 0);
       for (const p of collected) {
@@ -557,7 +598,23 @@ export class Game {
         else this.pickups.remove(p);
         this.audio.play('pickup');
       }
-      this.discovery.update(simDt);
+      if (this.inDungeon) {
+        this.dungeon.update(simDt);
+        if (!this.dungeon.keeperSpawned && this.dungeon.inBossChamber(pp) && !this.player.dead) {
+          this.dungeon.keeperSpawned = true;
+          const k = this.dungeon.keeperSpawn();
+          const e = this.enemies.spawn('crypt_keeper', k.x, k.z, k.y);
+          e.aggro = true;
+          e.setState('chase');
+          this.audio.play('boss');
+          this.events.emit('banner', { title: e.def.name, subtitle: e.def.bossTitle ?? '', kind: 'boss' });
+          this.cameraRig.shake(0.5);
+        }
+        if (pp.y < DUNGEON_ORIGIN.y - 6) {
+          this.player.body.pos.copy(this.dungeon.entryPos);
+          this.player.body.vel.set(0, 0, 0);
+        }
+      } else this.discovery.update(simDt);
       this.building.update(simDt, pp);
       this.resources.update(simDt, this.state.playTime, pp, this.quality.viewDistance);
       this.env.update(simDt, pp, true);
@@ -589,7 +646,7 @@ export class Game {
     const obstacles = [this.building.group, this.landmarks.group];
     this.cameraRig.buildMode = this.building.active;
     this.cameraRig.update(dt, pp, obstacles, this.building.active ? 0.9 : 0.55);
-    this.grass.update(pp);
+    if (!this.inDungeon) this.grass.update(pp);
     this.water.update(dt, this.env);
     this.landmarks.update(dt);
     this.updateLights(pp);
@@ -620,6 +677,8 @@ export class Game {
     else if (i.wasPressed('KeyC')) this.openMenu('crafting');
     else if (i.wasPressed('KeyJ')) this.openMenu('quests');
     else if (i.wasPressed('KeyM')) this.openMenu('map');
+    else if (i.wasPressed('KeyK')) this.openMenu('skills');
+    else if (i.wasPressed('KeyB') && this.inDungeon) this.events.emit('notify', { text: '묘소 안에서는 건축할 수 없습니다', kind: 'warn' });
     else if (i.wasPressed('KeyB') && (this.ui.panel === null || this.ui.panel === 'menu')) {
       if (this.ui.panel) this.closePanel(true);
       this.building.setActive(!this.building.active);
@@ -655,6 +714,7 @@ export class Game {
     if (i.wasMousePressed(2)) this.player.startAttack(true);
     if (i.wasPressed('KeyQ')) this.player.startDodge();
     for (let k = 1; k <= 4; k++) if (i.wasPressed(`Digit${k}`)) this.useHotbar(k - 1);
+    for (let k = 0; k < SKILL_KEYS.length; k++) if (i.wasPressed(SKILL_KEYS[k])) this.useSkill(k);
     if (i.wasPressed('KeyE') && this.ui.prompt) this.ui.prompt.run();
     else if (i.isDown('KeyE') && !this.player.busy && this.ui.prompt?.kind === 'node') this.ui.prompt.run();
     if (i.wheel !== 0) this.cameraRig.zoom(i.wheel);
@@ -680,6 +740,16 @@ export class Game {
     if (piece) {
       const d = Math.hypot(piece.state.x - p.x, piece.state.z - p.z);
       consider(d - 0.5, this.pieceInteraction(piece));
+    }
+    // Dungeon
+    if (this.inDungeon) {
+      for (const it of this.dungeon.interactables) {
+        if (it.kind === 'chest' && this.state.openedChests.includes(it.id)) continue;
+        const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z);
+        if (d > it.radius || Math.abs(it.pos.y - p.y) > 3) continue;
+        consider(d - 0.6, { label: it.label, key: 'E', kind: 'landmark', run: () => this.dungeonInteract(it) });
+      }
+      return best ? (best as { score: number; it: Interaction }).it : null;
     }
     // Landmarks
     for (const lm of this.landmarks.interactables) {
@@ -761,6 +831,8 @@ export class Game {
         this.audio.play('deny');
         this.events.emit('notify', { text: '제단이 고대 인장을 원한다. (작업대에서 제작)', kind: 'warn' });
       }
+    } else if (lm.kind === 'dungeon') {
+      this.enterDungeon();
     } else if (lm.kind === 'station') {
       this.openMenu('crafting');
     }
@@ -831,12 +903,18 @@ export class Game {
     const stats = derivePlayerStats(p);
     const head = this.player.body.pos.clone().setY(this.player.body.pos.y + 2);
     if (def.use.heal) {
-      p.hp = Math.min(stats.maxHp, p.hp + def.use.heal);
-      this.floatText.spawn(head, `+${def.use.heal}`, 'heal');
+      const heal = Math.round(def.use.heal * stats.healMult);
+      p.hp = Math.min(stats.maxHp, p.hp + heal);
+      this.floatText.spawn(head, `+${heal}`, 'heal');
     }
+    if (def.use.mana) {
+      p.mana = Math.min(stats.maxMana, (p.mana ?? 0) + def.use.mana);
+      this.floatText.spawn(head, `+${def.use.mana} 마나`, 'mana');
+    }
+    if (def.use.resetSkills) this.resetSkills();
     if (def.use.hot) {
       p.buffs = p.buffs.filter((b) => b.id !== 'hot');
-      p.buffs.push({ id: 'hot', time: def.use.hot.duration, amount: def.use.hot.amount / def.use.hot.duration });
+      p.buffs.push({ id: 'hot', time: def.use.hot.duration, amount: (def.use.hot.amount * stats.healMult) / def.use.hot.duration });
       this.floatText.spawn(head, '치유 중', 'heal');
     }
     if (def.use.buff) {
@@ -869,7 +947,7 @@ export class Game {
     const s = this.state.player.inventory[index];
     if (!s) return;
     const def = ITEMS[s.id];
-    if (def.category === 'weapon' || def.category === 'armor') this.equipFromSlot(index);
+    if (def.category === 'weapon' || def.category === 'armor' || def.category === 'accessory') this.equipFromSlot(index);
     else if (def.use) {
       this.consumeItem(s.id);
     } else if (s.id === 'settlement_charter') {
@@ -883,7 +961,7 @@ export class Game {
     const s = st.inventory[index];
     if (!s) return;
     const def = ITEMS[s.id];
-    const kind = def.category === 'weapon' ? 'weapon' : def.category === 'armor' ? 'armor' : null;
+    const kind = def.category === 'weapon' ? 'weapon' : def.category === 'armor' ? 'armor' : def.category === 'accessory' ? 'trinket' : null;
     if (!kind) return;
     const prev = st.equipment[kind];
     st.equipment[kind] = s.id;
@@ -894,7 +972,7 @@ export class Game {
     this.bridge.bump();
   }
 
-  unequip(kind: 'weapon' | 'armor') {
+  unequip(kind: 'weapon' | 'armor' | 'trinket') {
     const st = this.state.player;
     const id = st.equipment[kind];
     if (!id) return;
@@ -1075,6 +1153,7 @@ export class Game {
       p.xp -= xpToNext(p.level);
       p.level++;
       p.attrPoints += POINTS_PER_LEVEL;
+      p.skillPoints += SKILL_POINTS_PER_LEVEL;
       leveled = true;
     }
     if (leveled) {
@@ -1117,9 +1196,11 @@ export class Game {
       if (dy < -2 || dy > (e.def.flying ? 3.5 : 2.5)) continue;
       const ang = Math.abs(angleDiff(pl.yaw, Math.atan2(dx, dz)));
       if (d > 0.6 && ang > ((arcDeg / 2) * Math.PI) / 180) continue;
-      const crit = Math.random() < stats.critChance;
+      const riposte = this.state.player.buffs.some((b) => b.id === 'riposte');
+      const crit = riposte || Math.random() < stats.critChance;
       let dmg = stats.attack * mult * (0.9 + Math.random() * 0.2);
       if (crit) dmg *= stats.critMult;
+      if (riposte) dmg *= stats.riposteMult;
       const final = Math.round(mitigate(dmg, e.def.defense));
       e.hp -= final;
       hits++;
@@ -1135,6 +1216,26 @@ export class Game {
     if (hits > 0) {
       this.hitStop = heavy ? 0.09 : 0.05;
       this.cameraRig.shake(heavy ? 0.35 : 0.15);
+      const p = this.state.player;
+      if (p.buffs.some((b) => b.id === 'riposte')) p.buffs = p.buffs.filter((b) => b.id !== 'riposte');
+    }
+    // the cracked wall in the crypt can be smashed open
+    if (this.inDungeon && !this.dungeon.wallBroken) {
+      const w = this.dungeon.crackWallPos();
+      const dx = w.x - pp.x;
+      const dz = w.z - pp.z;
+      const d = Math.hypot(dx, dz);
+      if (d < range + 0.6 && Math.abs(angleDiff(pl.yaw, Math.atan2(dx, dz))) < 1.2) {
+        this.audio.play('mine');
+        this.particles.burst(w, 0x9a8a80, 12, 3, 0.12);
+        if (this.dungeon.hitCrackWall(heavy)) {
+          this.particles.burst(w, 0x8a7a70, 40, 6, 0.2);
+          this.audio.play('slam');
+          this.cameraRig.shake(0.4);
+          this.events.emit('banner', { title: '숨겨진 통로', subtitle: '무너진 벽 너머에 방이 있다', kind: 'discover' });
+          this.gainXp(40, '숨겨진 방');
+        }
+      }
     }
   }
 
@@ -1152,16 +1253,22 @@ export class Game {
       if (qty > 0) this.pickups.spawn(d.item, qty, pos);
     }
     this.gainXp(def.xp, def.name);
-    if (def.boss) {
+    if (def.id === 'warden') {
       st.bossDefeated++;
       this.events.emit('banner', { title: '수호자를 쓰러뜨렸다!', subtitle: '섬이 당신을 주인으로 인정했다', kind: 'boss' });
       this.particles.rise(pos, 0x5fe0f0, 80, 3);
+      this.requestAutosave();
+    } else if (def.id === 'crypt_keeper') {
+      this.dungeon.keeperDefeated = true;
+      this.events.emit('banner', { title: '묘지기를 쓰러뜨렸다!', subtitle: '왕의 보물함의 봉인이 풀렸다', kind: 'boss' });
+      this.particles.rise(pos, 0xb06aff, 70, 2.5);
+      for (const o of this.enemies.list) if (o.def.id === 'skeleton' && o.state !== 'dead') o.hp = 0, this.enemies.onDamaged(o, 999, new THREE.Vector3(), true);
       this.requestAutosave();
     }
     this.quests.check();
   }
 
-  damagePlayer(amount: number, from: THREE.Vector3, opts: { knock?: number; slow?: boolean } = {}): boolean {
+  damagePlayer(amount: number, from: THREE.Vector3, opts: { knock?: number; slow?: boolean; source?: Enemy; unblockable?: boolean } = {}): boolean {
     const pl = this.player;
     if (pl.dead) return false;
     const head = pl.body.pos.clone().setY(pl.body.pos.y + 2);
@@ -1170,7 +1277,47 @@ export class Game {
       return false;
     }
     const p = this.state.player;
-    const dmg = Math.round(mitigate(amount, pl.stats.defense));
+    // Blocking: attacks from the front are parried (early) or reduced (late). Ground slams cannot be blocked.
+    if (pl.blocking && !opts.unblockable) {
+      const facing = Math.abs(angleDiff(pl.yaw, Math.atan2(from.x - pl.body.pos.x, from.z - pl.body.pos.z)));
+      if (facing < 1.35) {
+        if (pl.blockTime <= pl.stats.parryWindow) {
+          this.floatText.spawn(head, '패링!', 'crit');
+          this.audio.play('crit');
+          this.particles.burst(head.clone().setY(head.y - 0.6), 0xffe9a0, 18, 5, 0.08, 4, 0.4);
+          this.hitStop = 0.12;
+          this.cameraRig.shake(0.2);
+          if (opts.source) this.enemies.onParried(opts.source);
+          p.buffs = p.buffs.filter((b) => b.id !== 'riposte');
+          p.buffs.push({ id: 'riposte', time: 2.5 });
+          p.stamina = Math.min(pl.stats.maxStamina, p.stamina + 10);
+          this.state.counters.parry = (this.state.counters.parry ?? 0) + 1;
+          this.quests.check();
+          this.bridge.bump();
+          return true;
+        }
+        const cost = amount * 1.1;
+        if (p.stamina >= cost * 0.5) {
+          p.stamina = Math.max(0, p.stamina - cost);
+          amount *= 0.25;
+          this.audio.play('mine', 0.6);
+          this.particles.burst(head.clone().setY(head.y - 0.6), 0xdddddd, 6, 3, 0.06, 4, 0.3);
+          opts = { ...opts, knock: (opts.knock ?? 0) * 0.4, slow: false };
+          if (p.stamina <= 0) this.floatText.spawn(head, '가드 브레이크', 'hurt');
+        } else {
+          pl.action = 'none';
+          this.floatText.spawn(head, '가드 브레이크', 'hurt');
+        }
+      }
+    }
+    let dmg = Math.round(mitigate(amount, pl.stats.defense));
+    if (dmg >= p.hp && rank(p, 's_second') > 0 && pl.secondWindCd <= 0) {
+      dmg = Math.max(0, Math.floor(p.hp) - 1);
+      pl.secondWindCd = 300;
+      pl.iframes = 2;
+      this.floatText.spawn(head, '불굴!', 'crit');
+      this.particles.rise(pl.body.pos, 0xffd27a, 30, 1);
+    }
     p.hp -= dmg;
     this.floatText.spawn(head, `-${dmg}`, 'hurt');
     this.audio.play('hurt');
@@ -1197,6 +1344,7 @@ export class Game {
 
   respawn() {
     const p = this.state.player;
+    if (this.inDungeon) this.leaveDungeonState();
     const sp = p.spawn ?? { x: SPAWN.x + 2.5, y: 0, z: SPAWN.z + 6.5 };
     p.x = sp.x;
     p.z = sp.z;
@@ -1272,10 +1420,13 @@ export class Game {
   private updateLights(focus: THREE.Vector3) {
     const buf = this.lightBuf;
     buf.length = 0;
-    for (const l of this.landmarks.lights) buf.push(l);
-    if (this.building) this.building.lightSources(buf);
+    if (this.inDungeon) for (const l of this.dungeon.lights) buf.push(l);
+    else {
+      for (const l of this.landmarks.lights) buf.push(l);
+      if (this.building) this.building.lightSources(buf);
+    }
     buf.sort((a, b) => a.pos.distanceToSquared(focus) - b.pos.distanceToSquared(focus));
-    const night = 0.3 + 0.7 * (1 - this.env.daylight);
+    const night = this.inDungeon ? 1 : 0.3 + 0.7 * (1 - this.env.daylight);
     const t = performance.now() * 0.001;
     for (let i = 0; i < this.lights.length; i++) {
       const L = this.lights[i];
@@ -1289,6 +1440,345 @@ export class Game {
       L.distance = s.distance;
       L.intensity = s.intensity * night * (0.88 + Math.sin(t * 11 + i) * 0.06 + Math.sin(t * 23 + i * 2) * 0.05);
     }
+  }
+
+  // ── Skills ──────────────────────────────────────────────
+  skillsLearnedCount(): number {
+    return Object.values(this.state.player.skills).filter((r) => r > 0).length;
+  }
+
+  canLearn(id: string): { ok: boolean; reason: string } {
+    const def = SKILL_BY_ID[id];
+    const p = this.state.player;
+    if (!def) return { ok: false, reason: '알 수 없는 스킬' };
+    if (rank(p, id) >= def.maxRank) return { ok: false, reason: '최고 단계' };
+    if (p.level < def.levelReq) return { ok: false, reason: `레벨 ${def.levelReq} 필요` };
+    for (const req of def.requires ?? []) if (rank(p, req.skill) < req.rank) return { ok: false, reason: `${SKILL_BY_ID[req.skill].name} ${req.rank}단계 필요` };
+    if (p.skillPoints <= 0) return { ok: false, reason: '스킬 포인트 부족' };
+    return { ok: true, reason: '' };
+  }
+
+  learnSkill(id: string): boolean {
+    const c = this.canLearn(id);
+    if (!c.ok) {
+      this.audio.play('deny');
+      this.events.emit('notify', { text: c.reason, kind: 'warn' });
+      return false;
+    }
+    const p = this.state.player;
+    const def = SKILL_BY_ID[id];
+    p.skillPoints--;
+    p.skills[id] = rank(p, id) + 1;
+    if (def.kind === 'active' && !p.skillBar.includes(id)) {
+      const empty = p.skillBar.indexOf(null);
+      if (empty >= 0) p.skillBar[empty] = id;
+    }
+    this.player.refreshEquipment();
+    this.audio.play('levelup', 0.6);
+    this.events.emit('notify', { text: `스킬 습득: ${def.name} ${p.skills[id]}단계`, kind: 'unlock' });
+    this.particles.rise(this.player.body.pos, 0x9ad0ff, 18, 0.8);
+    this.quests.check();
+    this.requestAutosave();
+    this.bridge.bump();
+    return true;
+  }
+
+  assignSkill(slot: number, id: string | null) {
+    const bar = this.state.player.skillBar;
+    if (id) for (let i = 0; i < bar.length; i++) if (bar[i] === id) bar[i] = null;
+    bar[slot] = id;
+    this.audio.play('click');
+    this.bridge.bump();
+  }
+
+  resetSkills() {
+    const p = this.state.player;
+    const total = Object.values(p.skills).reduce((a, r) => a + r, 0);
+    p.skills = {};
+    p.skillBar = [null, null, null, null];
+    p.skillPoints += total;
+    this.player.refreshEquipment();
+    this.events.emit('notify', { text: `기술을 잊었다. 스킬 포인트 ${total} 반환`, kind: 'info' });
+    this.bridge.bump();
+  }
+
+  useSkill(slot: number) {
+    const p = this.state.player;
+    const id = p.skillBar[slot];
+    if (!id) return;
+    const def = SKILL_BY_ID[id];
+    const pl = this.player;
+    if (!def?.active || rank(p, id) <= 0 || pl.dead || pl.swimming || this.building.active || pl.busy) return;
+    const cd = pl.cooldowns.get(id);
+    if (cd) {
+      this.events.emit('notify', { text: `${def.name} 재사용 대기 ${cd.toFixed(1)}초`, kind: 'warn' });
+      return;
+    }
+    const a = def.active;
+    if (a.stamina && p.stamina < a.stamina) {
+      this.audio.play('deny');
+      this.events.emit('notify', { text: '스태미나가 부족합니다', kind: 'warn' });
+      return;
+    }
+    if (a.mana && (p.mana ?? 0) < a.mana) {
+      this.audio.play('deny');
+      this.events.emit('notify', { text: '마나가 부족합니다', kind: 'warn' });
+      return;
+    }
+    if (id === 'a_heal' && p.hp >= pl.stats.maxHp) {
+      this.events.emit('notify', { text: '체력이 가득 찼습니다', kind: 'warn' });
+      return;
+    }
+    if (a.stamina) {
+      p.stamina -= a.stamina;
+      pl.staminaDelay = 0.7;
+    }
+    if (a.mana) p.mana -= a.mana;
+    pl.cooldowns.set(id, a.cooldown);
+    if (pl.action === 'block') pl.action = 'none';
+    if (id === 'c_whirl') {
+      pl.startSkill(id, 'spin', 0.6);
+      this.audio.play('heavy');
+    } else if (id === 'c_dash') {
+      pl.startSkill(id, 'dash', 0.35);
+      this.audio.play('dodge');
+    } else {
+      pl.startSkill(id, 'cast', 0.45);
+    }
+    this.bridge.bump();
+  }
+
+  /** Damage from skills / spells (not the basic weapon swing). */
+  private damageEnemy(e: Enemy, raw: number, knock: THREE.Vector3, heavy: boolean, canCrit = true, cls = 'dmg') {
+    const st = this.player.stats;
+    const crit = canCrit && Math.random() < st.critChance;
+    const final = Math.round(mitigate(raw * (crit ? st.critMult : 1), e.def.defense));
+    e.hp -= final;
+    const at = e.body.pos.clone();
+    at.y += e.def.height * 0.7 + (e.def.flying ? 1 : 0);
+    this.floatText.spawn(at, String(final), crit ? 'crit' : cls);
+    this.particles.burst(at, crit ? 0xffd27a : 0xffffff, 8, 4, 0.07, 6, 0.4);
+    this.audio.play(crit ? 'crit' : 'hit');
+    this.enemies.onDamaged(e, final, knock, heavy);
+    if (e.hp <= 0) this.onEnemyKilled(e);
+  }
+
+  onSkillImpact(id: string) {
+    const p = this.state.player;
+    const pl = this.player;
+    const st = pl.stats;
+    const r = Math.max(1, rank(p, id));
+    const pp = pl.body.pos;
+    if (id === 'c_whirl') {
+      this.playerAttack(3.2, 360, [1.4, 1.75, 2.1][r - 1], true);
+      const v = new THREE.Vector3();
+      for (let i = 0; i < 28; i++) {
+        const a = (i / 28) * Math.PI * 2;
+        v.set(Math.cos(a) * 7, 0.6, Math.sin(a) * 7);
+        this.particles.emit(new THREE.Vector3(pp.x, pp.y + 1, pp.z), v, 0xffe2b0, 0.35, 0.09, 0);
+      }
+    } else if (id === 'a_bolt') {
+      const camF = this.cameraRig.forward();
+      let target: Enemy | null = null;
+      let best = Infinity;
+      for (const e of this.enemies.list) {
+        if (e.state === 'dead' || e.removed) continue;
+        const dx = e.body.pos.x - pp.x;
+        const dz = e.body.pos.z - pp.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 24) continue;
+        const dot = (dx * camF.x + dz * camF.z) / (d || 1);
+        const score = d * (dot > 0.3 ? 1 : 3);
+        if (score < best) {
+          best = score;
+          target = e;
+        }
+      }
+      const from = new THREE.Vector3(pp.x + Math.sin(pl.yaw) * 0.6, pp.y + 1.4, pp.z + Math.cos(pl.yaw) * 0.6);
+      const dir = target ? target.body.pos.clone().setY(target.body.pos.y + target.def.height * 0.6 + (target.def.flying ? 1 : 0)).sub(from).normalize() : new THREE.Vector3(camF.x, 0.02, camF.z).normalize();
+      if (target) pl.yaw = Math.atan2(target.body.pos.x - pp.x, target.body.pos.z - pp.z);
+      this.projectiles.spawn(from, dir.multiplyScalar(22), st.magicPower * [1.2, 1.5, 1.8][r - 1], 0x7ad8ff, { owner: 'player', target: target ?? undefined, homing: target ? 4 : 0, life: 2.2 });
+      this.audio.play('shoot');
+    } else if (id === 'a_heal') {
+      const heal = Math.round(st.maxHp * [0.25, 0.35, 0.45][r - 1]);
+      p.hp = Math.min(st.maxHp, p.hp + heal);
+      this.floatText.spawn(pp.clone().setY(pp.y + 2), `+${heal}`, 'heal');
+      this.particles.rise(pp, 0x7cff8a, 30, 1);
+      this.audio.play('discover', 0.6);
+    } else if (id === 'a_nova') {
+      const mult = [1.0, 1.3, 1.6][r - 1];
+      for (const e of [...this.enemies.list]) {
+        if (e.state === 'dead' || e.removed) continue;
+        const dx = e.body.pos.x - pp.x;
+        const dz = e.body.pos.z - pp.z;
+        const d = Math.hypot(dx, dz) - e.def.radius;
+        if (d > 5 || Math.abs(e.body.pos.y - pp.y) > 3) continue;
+        e.slowTime = 3;
+        this.damageEnemy(e, st.magicPower * mult, new THREE.Vector3(dx, 0, dz).normalize(), false, true, 'mana');
+      }
+      const v = new THREE.Vector3();
+      for (let i = 0; i < 40; i++) {
+        const a = (i / 40) * Math.PI * 2;
+        v.set(Math.cos(a) * 9, 0.4 + Math.random(), Math.sin(a) * 9);
+        this.particles.emit(new THREE.Vector3(pp.x, pp.y + 0.4, pp.z), v, 0xbfe8ff, 0.5, 0.12, 1);
+      }
+      this.audio.play('slam', 0.5);
+      this.cameraRig.shake(0.25);
+    }
+    this.bridge.bump();
+  }
+
+  /** Called every frame of the dash: hit each enemy along the path once. */
+  skillDashHits(pl: Player) {
+    const r = Math.max(1, rank(this.state.player, 'c_dash'));
+    const pp = pl.body.pos;
+    for (const e of this.enemies.list) {
+      if (e.state === 'dead' || e.removed || pl.skillHits.has(e)) continue;
+      const dx = e.body.pos.x - pp.x;
+      const dz = e.body.pos.z - pp.z;
+      if (Math.hypot(dx, dz) > 1.7 + e.def.radius || Math.abs(e.body.pos.y - pp.y) > 2.5) continue;
+      pl.skillHits.add(e);
+      this.damageEnemy(e, pl.stats.attack * [1.5, 1.9, 2.3][r - 1], new THREE.Vector3(dx, 0, dz).normalize(), true);
+      this.hitStop = 0.04;
+    }
+  }
+
+  /** Player spell projectiles vs enemies. */
+  private playerProjectileHit(p: Projectile): boolean {
+    for (const e of this.enemies.list) {
+      if (e.state === 'dead' || e.removed) continue;
+      const cy = e.body.pos.y + e.def.height * 0.5 + (e.def.flying ? 1 : 0);
+      const d = Math.hypot(p.pos.x - e.body.pos.x, p.pos.z - e.body.pos.z);
+      if (d < e.def.radius + 0.45 && Math.abs(p.pos.y - cy) < e.def.height * 0.6 + 0.4) {
+        this.damageEnemy(e, p.damage, p.vel.clone().setY(0).normalize(), false, true, 'mana');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Dungeon ─────────────────────────────────────────────
+  cryptExterior(): THREE.Vector3 {
+    const loc = LOCATION_BY_ID.crypt_entrance;
+    const x = loc.x;
+    const z = loc.z + 6.5;
+    return new THREE.Vector3(x, groundAt(this.terrain, this.colliders, x, z, 0.35, this.terrain.heightAt(x, z) + 30, 0) + 0.05, z);
+  }
+
+  private setDungeonVisuals(inside: boolean) {
+    this.dungeon.group.visible = inside;
+    this.terrain.mesh.visible = !inside;
+    this.water.mesh.visible = !inside;
+    this.resources.group.visible = !inside;
+    this.grass.group.visible = !inside;
+    this.landmarks.group.visible = !inside;
+    this.building.group.visible = !inside;
+    this.env.interior = inside;
+  }
+
+  enterDungeon() {
+    if (this.inDungeon || this.player.dead) return;
+    if (this.building.active) this.building.setActive(false);
+    this.enemies.clear();
+    this.projectiles.clear();
+    this.dungeon.reset();
+    this.inDungeon = true;
+    this.setDungeonVisuals(true);
+    const e = this.dungeon.entryPos;
+    this.player.body.pos.set(e.x, e.y + 0.05, e.z);
+    this.player.body.vel.set(0, 0, 0);
+    this.player.yaw = 0;
+    this.cameraRig.yaw = 0;
+    this.cameraRig.pitch = 0.25;
+    this.cameraRig.snap();
+    for (const s of this.dungeon.spawns()) this.enemies.spawn(s.enemy, s.x, s.z, DUNGEON_ORIGIN.y);
+    this.ui.fade = 1.2;
+    this.audio.play('door');
+    this.events.emit('banner', { title: '잊혀진 묘소', subtitle: '차가운 공기가 뼛속까지 스며든다', kind: 'region' });
+    this.bridge.bump();
+  }
+
+  /** Leave interior state without moving the player (used by respawn / load). */
+  leaveDungeonState() {
+    this.inDungeon = false;
+    this.setDungeonVisuals(false);
+    this.enemies.clear();
+    this.projectiles.clear();
+  }
+
+  exitDungeon() {
+    if (!this.inDungeon) return;
+    this.leaveDungeonState();
+    const e = this.cryptExterior();
+    this.player.body.pos.copy(e);
+    this.player.body.vel.set(0, 0, 0);
+    this.player.yaw = 0;
+    this.cameraRig.yaw = 0;
+    this.cameraRig.snap();
+    this.ui.fade = 1.2;
+    this.audio.play('door');
+    this.requestAutosave();
+    this.bridge.bump();
+  }
+
+  private dungeonInteract(it: DungeonInteractable) {
+    const st = this.state;
+    if (it.kind === 'portal') this.exitDungeon();
+    else if (it.kind === 'lore') {
+      this.ui.lore = {
+        title: '묘지기의 기록',
+        text:
+          '"왕께서 잠드신 지 천 년. 나는 아직 이곳을 지킨다.\n\n세 개의 문양은 하루의 흐름을 따라야만 길을 연다. 순서를 어긴 자에게 철문은 응답하지 않는다.\n\n벽 너머에 왕의 보물 일부를 숨겨 두었다. 금이 간 돌은 오래 버티지 못하리라."',
+      };
+      this.openPanel('lore');
+      if (!st.loreRead.includes('crypt_hall')) {
+        st.loreRead.push('crypt_hall');
+        this.gainXp(20, '고대의 기록');
+      }
+    } else if (it.kind === 'lever' && it.symbol) {
+      const r = this.dungeon.pullLever(it.symbol);
+      if (r === 'already') this.events.emit('notify', { text: '이미 당겨져 있다', kind: 'info' });
+      else if (r === 'progress') {
+        this.audio.play('door');
+        this.events.emit('notify', { text: '철컥… 어딘가에서 톱니가 맞물리는 소리가 난다', kind: 'info' });
+      } else if (r === 'wrong') {
+        this.audio.play('deny');
+        this.events.emit('notify', { text: '레버들이 덜컹거리며 제자리로 돌아간다. 순서가 틀린 것 같다', kind: 'warn' });
+      } else {
+        this.audio.play('slam');
+        this.cameraRig.shake(0.4);
+        this.events.emit('banner', { title: '철문이 열렸다', subtitle: '묘소 깊은 곳으로 가는 길이 드러났다', kind: 'discover' });
+        st.counters['crypt:gate'] = (st.counters['crypt:gate'] ?? 0) + 1;
+        this.gainXp(50, '퍼즐');
+        this.quests.check();
+      }
+    } else if (it.kind === 'chest') {
+      if (st.openedChests.includes(it.id)) return;
+      if (it.id === 'dchest_boss' && !this.dungeon.keeperDefeated) {
+        this.audio.play('deny');
+        this.events.emit('notify', { text: '보이지 않는 힘이 상자를 봉인하고 있다. 묘지기를 쓰러뜨려야 한다', kind: 'warn' });
+        return;
+      }
+      st.openedChests.push(it.id);
+      const items =
+        it.id === 'dchest_hidden'
+          ? [
+              { item: 'arcane_ring', qty: 1 },
+              { item: 'mana_potion', qty: 2 },
+              { item: 'skill_tome', qty: 1 },
+            ]
+          : [
+              { item: 'copper_ingot', qty: 6 },
+              { item: 'crystal', qty: 2 },
+              { item: 'health_potion', qty: 2 },
+            ];
+      for (const x of items) this.giveItem(x.item, x.qty, 'loot');
+      this.audio.play('discover');
+      this.particles.rise(it.pos, 0xffd27a, 24, 0.8);
+      this.gainXp(40, '보물 발견');
+      this.requestAutosave();
+    }
+    this.bridge.bump();
   }
 
   // ── Helpers for UI ──────────────────────────────────────

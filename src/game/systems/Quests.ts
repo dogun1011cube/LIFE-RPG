@@ -115,6 +115,16 @@ export class QuestSystem {
           current = st.discovered.length;
           target = o.count;
           break;
+        case 'counter':
+          label = o.label;
+          current = st.counters[o.key] ?? 0;
+          target = o.count;
+          break;
+        case 'skills_learned':
+          label = '스킬 습득';
+          current = this.game.skillsLearnedCount();
+          target = o.count;
+          break;
         case 'level':
           label = `레벨 ${o.level} 달성`;
           current = st.player.level;

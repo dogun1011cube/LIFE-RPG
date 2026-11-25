@@ -71,6 +71,11 @@ export class Environment {
   private skyMat: THREE.ShaderMaterial;
   private elapsed = 0;
   private shadowExtent = 45;
+  private viewNear = 80;
+  private viewFar = 360;
+  /** Underground: no sky, no sun, dark fog, dim ambient. */
+  interior = false;
+  private black = new THREE.Color(0x040406);
 
   constructor(private scene: THREE.Scene) {
     this.sun = new THREE.DirectionalLight(0xffffff, 2.5);
@@ -125,8 +130,10 @@ export class Environment {
   }
 
   setViewDistance(d: number) {
-    this.fog.far = d;
-    this.fog.near = d * 0.22;
+    this.viewFar = d;
+    this.viewNear = d * 0.22;
+    this.fog.far = this.viewFar;
+    this.fog.near = this.viewNear;
   }
 
   get hours(): number {
@@ -206,5 +213,19 @@ export class Environment {
 
     this.fog.color.copy(hor);
     this.scene.background = hor;
+    this.sky.visible = !this.interior;
+    if (this.interior) {
+      this.sun.intensity = 0;
+      this.hemi.color.setHex(0x5a6385);
+      this.hemi.groundColor.setHex(0x2a2622);
+      this.hemi.intensity = 0.55;
+      this.fog.color.copy(this.black);
+      this.fog.near = 6;
+      this.fog.far = 48;
+      this.scene.background = this.black;
+    } else {
+      this.fog.near = this.viewNear;
+      this.fog.far = this.viewFar;
+    }
   }
 }

@@ -13,6 +13,9 @@ export interface Projectile {
   homing: number;
   slow: boolean;
   color: number;
+  owner: 'enemy' | 'player';
+  /** homing target for player projectiles */
+  target?: { body: { pos: THREE.Vector3 }; removed?: boolean };
 }
 
 const coreGeo = new THREE.SphereGeometry(0.18, 10, 8);
@@ -29,7 +32,7 @@ export class ProjectileSystem {
     this.group.name = 'projectiles';
   }
 
-  spawn(pos: THREE.Vector3, vel: THREE.Vector3, damage: number, color: number, opts: { homing?: number; slow?: boolean; life?: number } = {}) {
+  spawn(pos: THREE.Vector3, vel: THREE.Vector3, damage: number, color: number, opts: { homing?: number; slow?: boolean; life?: number; owner?: 'enemy' | 'player'; target?: Projectile['target'] } = {}) {
     const g = new THREE.Group();
     const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color, toneMapped: false }));
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -37,7 +40,7 @@ export class ProjectileSystem {
     g.add(core, glow);
     g.position.copy(pos);
     this.group.add(g);
-    this.list.push({ mesh: g, pos: g.position, vel: vel.clone(), damage, life: opts.life ?? 4, radius: 0.35, homing: opts.homing ?? 0, slow: !!opts.slow, color });
+    this.list.push({ mesh: g, pos: g.position, vel: vel.clone(), damage, life: opts.life ?? 4, radius: 0.35, homing: opts.homing ?? 0, slow: !!opts.slow, color, owner: opts.owner ?? 'enemy', target: opts.target });
   }
 
   clear() {
@@ -46,14 +49,24 @@ export class ProjectileSystem {
   }
 
   /** Moves projectiles; calls onHit for those touching the target. Returns impact positions for FX. */
-  update(dt: number, target: THREE.Vector3, targetRadius: number, onHit: (p: Projectile) => boolean, onImpact: (pos: THREE.Vector3, color: number) => void) {
+  update(
+    dt: number,
+    target: THREE.Vector3,
+    targetRadius: number,
+    onHit: (p: Projectile) => boolean,
+    onImpact: (pos: THREE.Vector3, color: number) => void,
+    onPlayerProjectile: (p: Projectile) => boolean = () => false,
+  ) {
     const tmp = new THREE.Vector3();
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];
       p.life -= dt;
       if (p.homing > 0) {
-        tmp.set(target.x - p.pos.x, target.y + 1.1 - p.pos.y, target.z - p.pos.z).normalize().multiplyScalar(p.vel.length());
-        p.vel.lerp(tmp, Math.min(1, p.homing * dt));
+        const t = p.owner === 'player' ? (p.target && !p.target.removed ? p.target.body.pos : null) : target;
+        if (t) {
+          tmp.set(t.x - p.pos.x, t.y + 1.1 - p.pos.y, t.z - p.pos.z).normalize().multiplyScalar(p.vel.length());
+          p.vel.lerp(tmp, Math.min(1, p.homing * dt));
+        }
       }
       p.pos.addScaledVector(p.vel, dt);
       let dead = p.life <= 0;
@@ -67,7 +80,9 @@ export class ProjectileSystem {
           }
         }
       }
-      if (!dead) {
+      if (!dead && p.owner === 'player') {
+        if (onPlayerProjectile(p)) dead = true;
+      } else if (!dead) {
         const dx = target.x - p.pos.x;
         const dy = target.y + 1.0 - p.pos.y;
         const dz = target.z - p.pos.z;

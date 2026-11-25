@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { ITEMS } from '../data/items';
 import { damp } from '../core/math';
 
-export type AnimState = 'idle' | 'move' | 'air' | 'swim' | 'attack' | 'heavy' | 'gather' | 'pick' | 'dodge' | 'hurt' | 'dead' | 'use';
+export type AnimState = 'idle' | 'move' | 'air' | 'swim' | 'attack' | 'heavy' | 'gather' | 'pick' | 'dodge' | 'hurt' | 'dead' | 'use' | 'block' | 'spin' | 'dash' | 'cast';
 
 export interface AnimInput {
   state: AnimState;
@@ -415,6 +415,51 @@ export class CharacterModel {
         legR = -s * amp * 0.6;
         break;
       }
+      case 'block':
+        rArmX = -1.25;
+        rArmY = 0.75;
+        roll = Math.PI / 2;
+        lArmX = -1.1;
+        lArmY = -0.55;
+        torsoPitch = 0.12;
+        bodyY = 0.86;
+        legL = 0.35 + s * amp * 0.4;
+        legR = -0.25 - s * amp * 0.4;
+        capeX = 0.2;
+        break;
+      case 'spin': {
+        snap = true;
+        rArmX = -1.5;
+        rArmY = -1.2;
+        roll = Math.PI / 2;
+        lArmZ = 1.3;
+        legL = 0.3;
+        legR = -0.3;
+        bodyY = 0.84;
+        capeX = 1.2;
+        break;
+      }
+      case 'dash':
+        snap = true;
+        torsoPitch = 0.45;
+        rArmX = -1.55;
+        roll = 0;
+        lArmX = 0.6;
+        legL = 0.9;
+        legR = -0.9;
+        bodyY = 0.8;
+        capeX = 1.4;
+        break;
+      case 'cast': {
+        const up = Math.sin(Math.min(1, a.t) * Math.PI);
+        rArmX = -1.2 - 0.6 * up;
+        lArmX = -1.2 - 0.6 * up;
+        lArmZ = -0.15;
+        rArmZ = 0.15;
+        torsoPitch = -0.1 * up;
+        capeX = 0.4 + up * 0.4;
+        break;
+      }
       case 'dead':
         bodyPitch = -Math.PI / 2;
         bodyY = 0.25;
@@ -439,6 +484,8 @@ export class CharacterModel {
     this.body.position.y = lerpTo(this.body.position.y, bodyY, k);
     this.head.rotation.x = lerpTo(this.head.rotation.x, headPitch, k);
     this.cape.rotation.x = lerpTo(this.cape.rotation.x, capeX, damp(8, dt));
+    // whirlwind spins the whole upper/lower body around Y
+    this.hips.rotation.y = a.state === 'spin' ? ease(Math.min(1, a.t)) * Math.PI * 2 : 0;
     if (a.state === 'dodge') this.body.rotation.x = bodyRoll;
     else if (a.state === 'dead' || a.state === 'swim') this.body.rotation.x = lerpTo(this.body.rotation.x, bodyPitch, damp(6, dt));
     else this.body.rotation.x = lerpTo(this.body.rotation.x % (Math.PI * 2), 0, damp(14, dt));

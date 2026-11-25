@@ -7,9 +7,10 @@ import { derivePlayerStats, type DerivedStats } from '../systems/Stats';
 import { CharacterModel, type AnimState } from './CharacterModel';
 import { moveBody, type Body } from './physics';
 import type { ResourceNode } from '../world/Resources';
+import type { Enemy } from './Enemies';
 import type { Game } from '../Game';
 
-export type PlayerAction = 'none' | 'attack' | 'heavy' | 'dodge' | 'gather' | 'pick' | 'use' | 'hurt';
+export type PlayerAction = 'none' | 'attack' | 'heavy' | 'dodge' | 'gather' | 'pick' | 'use' | 'hurt' | 'block' | 'spin' | 'dash' | 'cast';
 
 const COST = { light: 9, heavy: 22, dodge: 20, jump: 7, sprintPerSec: 13 };
 
@@ -33,6 +34,13 @@ export class Player {
   gatherNode: ResourceNode | null = null;
   useItemId: string | null = null;
   lastHurtAt = -100;
+  /** time spent in the current block (parry window = first moments) */
+  blockTime = 0;
+  /** active skill being performed and its per-use hit set */
+  skillId: string | null = null;
+  skillHits = new Set<Enemy>();
+  readonly cooldowns = new Map<string, number>();
+  secondWindCd = 0;
   stats: DerivedStats;
   private dodgeDir = new THREE.Vector3();
   private moveDir = new THREE.Vector3();
@@ -63,7 +71,28 @@ export class Player {
   }
 
   get busy() {
-    return this.action !== 'none' && this.action !== 'hurt';
+    return this.action !== 'none' && this.action !== 'hurt' && this.action !== 'block';
+  }
+
+  get blocking() {
+    return this.action === 'block';
+  }
+
+  /** Start a skill animation; the game applies its effect at the impact moment. */
+  startSkill(id: string, kind: 'spin' | 'dash' | 'cast', dur: number) {
+    this.gatherNode = null;
+    this.action = kind;
+    this.actionTime = 0;
+    this.actionDur = dur;
+    this.hitDone = false;
+    this.skillId = id;
+    this.skillHits.clear();
+    if (kind === 'dash') {
+      this.iframes = dur + 0.05;
+      const f = this.moveDir.lengthSq() > 0.01 ? this.moveDir.clone().normalize() : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+      this.dodgeDir.copy(f);
+      this.yaw = Math.atan2(f.x, f.z);
+    }
   }
 
   /** Best owned tool of a kind. */
@@ -114,6 +143,7 @@ export class Player {
       return;
     }
     if (this.busy) return;
+    if (this.action === 'block') this.action = 'none';
     if (!this.spendStamina(heavy ? COST.heavy : COST.light)) return;
     this.faceTarget();
     this.action = heavy ? 'heavy' : 'attack';
@@ -226,6 +256,12 @@ export class Player {
     }
     this.iframes -= dt;
     this.comboResetTimer -= dt;
+    this.secondWindCd -= dt;
+    for (const [k, v] of this.cooldowns) {
+      if (v - dt <= 0) this.cooldowns.delete(k);
+      else this.cooldowns.set(k, v - dt);
+    }
+    if (!this.dead) s.mana = Math.min(st.maxMana, (s.mana ?? 0) + st.manaRegen * dt);
 
     // Movement input
     this.moveDir.set(0, 0, 0);
@@ -241,10 +277,30 @@ export class Player {
     const terrainH = game.terrain.heightAt(this.body.pos.x, this.body.pos.z);
     this.swimming = !this.dead && terrainH < WORLD.waterLevel - 1.15 && this.body.pos.y < WORLD.waterLevel - 0.6;
 
+    // Blocking: hold F
+    const wantBlock = inputEnabled && !this.dead && input.isDown('KeyF') && !game.building.active && !this.swimming;
+    if (wantBlock && (this.action === 'none' || this.action === 'hurt') && this.action !== ('block' as PlayerAction)) {
+      if (this.action === 'none') {
+        this.action = 'block';
+        this.blockTime = 0;
+        this.actionDur = 0;
+      }
+    } else if (this.action === 'block') {
+      if (!wantBlock) this.action = 'none';
+      else {
+        this.blockTime += dt;
+        this.staminaDelay = Math.max(this.staminaDelay, 0.4);
+      }
+    }
+
     const moving = this.moveDir.lengthSq() > 0.01;
     this.running = false;
     let speed = 0;
-    if (this.action === 'dodge') {
+    if (this.action === 'dash') {
+      this.body.vel.x = this.dodgeDir.x * 20;
+      this.body.vel.z = this.dodgeDir.z * 20;
+      game.skillDashHits(this);
+    } else if (this.action === 'dodge') {
       const t = this.actionTime / this.actionDur;
       const sp = 9.5 * (1 - t * 0.6);
       this.body.vel.x = this.dodgeDir.x * sp;
@@ -253,7 +309,7 @@ export class Player {
       const wantRun = inputEnabled && input.isDown('ShiftLeft') && moving && s.stamina > 1 && !this.swimming;
       if (wantRun && (this.action === 'none' || this.action === 'hurt')) {
         this.running = true;
-        s.stamina = Math.max(0, s.stamina - COST.sprintPerSec * dt);
+        s.stamina = Math.max(0, s.stamina - COST.sprintPerSec * st.sprintCost * dt);
         this.staminaDelay = 0.5;
       }
       speed = (this.swimming ? PLAYER.swimSpeed : this.running ? PLAYER.runSpeed : PLAYER.walkSpeed) * st.moveMult;
@@ -262,6 +318,9 @@ export class Player {
       else if (this.action === 'heavy') speed *= 0.12;
       else if (this.action === 'gather' || this.action === 'pick') speed = 0;
       else if (this.action === 'use') speed *= 0.5;
+      else if (this.action === 'block') speed *= 0.4;
+      else if (this.action === 'spin') speed *= 0.55;
+      else if (this.action === 'cast') speed *= 0.3;
       const tvx = this.moveDir.x * speed;
       const tvz = this.moveDir.z * speed;
       const accel = this.body.grounded || this.swimming ? 14 : 4;
@@ -345,6 +404,22 @@ export class Player {
             else this.gatherNode = null;
           } else this.gatherNode = null;
         }
+      } else if (this.action === 'spin' || this.action === 'cast' || this.action === 'dash') {
+        const impact = this.action === 'spin' ? 0.45 : this.action === 'cast' ? 0.45 : 0.99;
+        if (!this.hitDone && t >= impact && this.skillId) {
+          this.hitDone = true;
+          game.onSkillImpact(this.skillId);
+        }
+        if (t >= 1) {
+          if (this.action === 'dash') {
+            this.body.vel.x *= 0.25;
+            this.body.vel.z *= 0.25;
+          }
+          this.action = 'none';
+          this.skillId = null;
+        }
+      } else if (this.action === 'block') {
+        // held - handled above
       } else if (this.action === 'use') {
         if (!this.hitDone && t >= 0.5 && this.useItemId) {
           this.hitDone = true;
@@ -366,6 +441,10 @@ export class Player {
     else if (this.action === 'pick') anim = 'pick';
     else if (this.action === 'use') anim = 'use';
     else if (this.action === 'hurt') anim = 'hurt';
+    else if (this.action === 'block') anim = 'block';
+    else if (this.action === 'spin') anim = 'spin';
+    else if (this.action === 'dash') anim = 'dash';
+    else if (this.action === 'cast') anim = 'cast';
     else if (this.swimming) anim = 'swim';
     else if (!this.body.grounded && Math.abs(this.body.vel.y) > 1.5) anim = 'air';
     else if (hs > 0.3) anim = 'move';

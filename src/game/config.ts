@@ -33,5 +33,5 @@ export const DAY = {
   startTime: 0.3, // 07:12
 };
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_SLOTS = 3;

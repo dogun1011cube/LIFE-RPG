@@ -1,6 +1,6 @@
 import type { Cost } from './recipes';
 
-export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck';
+export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck' | 'crypt';
 
 export interface LocationDef {
   id: string;
@@ -76,6 +76,16 @@ export const LOCATIONS: LocationDef[] = [
       text: '"폭풍이 우리를 지도에 없는 섬으로 이끌었다. 섬의 중심에서 푸른 빛이 맥동한다..."\n\n나머지 글씨는 바닷물에 번져 읽을 수 없다.',
     },
     chest: { items: [{ item: 'wood', qty: 20 }, { item: 'fiber', qty: 10 }, { item: 'health_potion', qty: 1 }] },
+  },
+  {
+    id: 'crypt_entrance', name: '잊혀진 묘소', subtitle: '에테르눔 왕들이 잠든 지하 무덤', kind: 'crypt', x: -170, z: -40, discoverRadius: 22, flatRadius: 16, xp: 80,
+    lore: {
+      title: '묘소 입구의 경고문',
+      text:
+        '"이곳에 에테르눔의 마지막 왕이 잠들다. 묘지기가 그의 검을 지키니, 산 자는 돌아가라."\n\n' +
+        '문 옆에는 해, 달, 별이 새겨진 세 개의 문양이 있다. 아래쪽 작은 글씨: "빛이 태어나 저물고, 마침내 밤하늘을 수놓는다."\n\n' +
+        '석판 뒤에서 오래된 제작 기록을 발견했다. 망각의 서를 만드는 법이다.',
+    },
   },
 ];
 

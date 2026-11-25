@@ -1,7 +1,7 @@
-export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden';
+export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden' | 'skeleton' | 'archer' | 'keeper';
 
 export interface AttackDef {
-  kind: 'melee' | 'lunge' | 'slam' | 'ranged' | 'burst';
+  kind: 'melee' | 'lunge' | 'slam' | 'ranged' | 'burst' | 'summon';
   range: number;
   windup: number;
   active: number;
@@ -15,6 +15,12 @@ export interface AttackDef {
   weight?: number;
   phase?: 1 | 2;
   minRange?: number;
+  /** summon: enemy id and how many; skipped while that many minions are alive */
+  summon?: string;
+  count?: number;
+  /** projectile homing strength and colour */
+  homing?: number;
+  color?: number;
 }
 
 export interface DropDef {
@@ -48,6 +54,10 @@ export interface EnemyDef {
   boss?: boolean;
   flying?: boolean;
   keepDistance?: number;
+  /** Lives in a dungeon: never spawned naturally, never despawned by distance. */
+  dungeon?: boolean;
+  /** Shown under the boss bar / banner */
+  bossTitle?: string;
 }
 
 const list: EnemyDef[] = [
@@ -87,7 +97,7 @@ const list: EnemyDef[] = [
     drops: [{ item: 'gloom_essence', chance: 0.7, min: 1, max: 1 }],
   },
   {
-    id: 'warden', name: '폐허의 수호자', level: 8, model: 'warden', hp: 950, damage: 28, defense: 10, speed: 1.6, chaseSpeed: 3.4,
+    id: 'warden', name: '폐허의 수호자', level: 8, model: 'warden', bossTitle: '고대의 수호자가 깨어났다', hp: 950, damage: 28, defense: 10, speed: 1.6, chaseSpeed: 3.4,
     radius: 1.8, height: 4.6, scale: 1, aggroRange: 28, leash: 45, cooldown: 1.2, poise: 60, xp: 600, boss: true,
     attacks: [
       { kind: 'slam', range: 4.5, windup: 1.1, active: 0.2, recover: 1.0, mult: 1.2, aoe: 4.6, weight: 1 },
@@ -100,6 +110,38 @@ const list: EnemyDef[] = [
       { item: 'crystal', chance: 1, min: 3, max: 5 },
       { item: 'copper_ingot', chance: 1, min: 4, max: 6 },
       { item: 'health_potion', chance: 1, min: 2, max: 2 },
+    ],
+  },
+  {
+    id: 'skeleton', name: '해골 전사', level: 6, model: 'skeleton', hp: 95, damage: 15, defense: 6, speed: 1.6, chaseSpeed: 4.2,
+    radius: 0.5, height: 1.8, scale: 1, aggroRange: 13, leash: 28, cooldown: 1.1, poise: 14, xp: 45, dungeon: true,
+    attacks: [
+      { kind: 'melee', range: 2.2, windup: 0.55, active: 0.15, recover: 0.5, mult: 1, arc: 90, weight: 1 },
+      { kind: 'lunge', range: 5, minRange: 2.8, windup: 0.75, active: 0.35, recover: 0.8, mult: 1.2, lungeSpeed: 11, weight: 0.5 },
+    ],
+    drops: [{ item: 'bone', chance: 0.85, min: 1, max: 3 }, { item: 'copper_ingot', chance: 0.15, min: 1, max: 1 }],
+  },
+  {
+    id: 'skeleton_archer', name: '해골 궁수', level: 6, model: 'archer', hp: 62, damage: 13, defense: 3, speed: 1.6, chaseSpeed: 3.4,
+    radius: 0.5, height: 1.8, scale: 1, aggroRange: 20, leash: 30, cooldown: 1.6, poise: 0, xp: 45, dungeon: true, keepDistance: 9,
+    attacks: [{ kind: 'ranged', range: 18, windup: 0.95, active: 0.1, recover: 0.8, mult: 1, projSpeed: 19, homing: 0.15, color: 0xe8dcb8 }],
+    drops: [{ item: 'bone', chance: 0.85, min: 1, max: 2 }, { item: 'fiber', chance: 0.4, min: 2, max: 4 }],
+  },
+  {
+    id: 'crypt_keeper', name: '묘지기', level: 9, model: 'keeper', hp: 720, damage: 22, defense: 6, speed: 1.5, chaseSpeed: 2.6,
+    radius: 0.8, height: 2.6, scale: 1, aggroRange: 24, leash: 40, cooldown: 1.3, poise: 40, xp: 450, boss: true, dungeon: true, keepDistance: 6,
+    bossTitle: '잊혀진 왕의 무덤을 지키는 자',
+    attacks: [
+      { kind: 'ranged', range: 18, windup: 0.8, active: 0.1, recover: 0.9, mult: 1, projSpeed: 12, homing: 1.0, color: 0xb06aff, weight: 1.2 },
+      { kind: 'slam', range: 3.2, windup: 1.0, active: 0.2, recover: 1.0, mult: 1.2, aoe: 4.4, weight: 1.5 },
+      { kind: 'summon', range: 30, windup: 1.3, active: 0.1, recover: 1.0, mult: 0, summon: 'skeleton', count: 2, weight: 0.7 },
+      { kind: 'burst', range: 30, minRange: 4, windup: 1.0, active: 0.1, recover: 1.2, mult: 0.7, projCount: 12, projSpeed: 9, weight: 1, phase: 2, color: 0xb06aff },
+    ],
+    drops: [
+      { item: 'ancient_blade', chance: 1, min: 1, max: 1 },
+      { item: 'bone', chance: 1, min: 4, max: 6 },
+      { item: 'mana_potion', chance: 1, min: 2, max: 2 },
+      { item: 'ancient_fragment', chance: 1, min: 1, max: 1 },
     ],
   },
 ];

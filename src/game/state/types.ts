@@ -4,7 +4,7 @@
  */
 export type Slot = { id: string; qty: number } | null;
 
-export type AttrId = 'str' | 'vit' | 'end' | 'agi' | 'skl';
+export type AttrId = 'str' | 'vit' | 'end' | 'agi' | 'skl' | 'int';
 
 export interface Buff {
   id: string;
@@ -20,12 +20,16 @@ export interface PlayerState {
   yaw: number;
   hp: number;
   stamina: number;
+  mana: number;
   level: number;
   xp: number;
   attrPoints: number;
   attrs: Record<AttrId, number>;
+  skillPoints: number;
+  skills: Record<string, number>; // skill id -> rank
+  skillBar: (string | null)[]; // active skills on R / T / G / V
   inventory: Slot[];
-  equipment: { weapon: string | null; armor: string | null };
+  equipment: { weapon: string | null; armor: string | null; trinket: string | null };
   hotbar: (string | null)[];
   spawn: { x: number; y: number; z: number } | null;
   buffs: Buff[];

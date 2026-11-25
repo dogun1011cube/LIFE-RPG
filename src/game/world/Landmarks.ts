@@ -6,7 +6,7 @@ import type { CollisionWorld, BoxCollider } from './Colliders';
 import { boxGeo, woodTexture, clothTexture, glowTexture } from './textures';
 import { createCampfire, createChest, ruinStoneMaterial, type Flame } from './props';
 
-export type LandmarkInteractKind = 'lore' | 'chest' | 'altar' | 'station';
+export type LandmarkInteractKind = 'lore' | 'chest' | 'altar' | 'station' | 'dungeon';
 
 export interface LandmarkInteractable {
   id: string;
@@ -286,6 +286,41 @@ export class Landmarks {
         }
         this.lights.push({ pos: new THREE.Vector3(cx, base + 4, cz), color: 0x5fe0f0, intensity: 14, distance: 20 });
         this.tablet(loc, cx + 6, cz + 6, 0.8);
+        break;
+      }
+      case 'crypt': {
+        // grassy burial mound with a stone archway and steps leading down
+        const moundMat = new THREE.MeshStandardMaterial({ color: 0x4f6f34, roughness: 1, flatShading: true });
+        const mound = new THREE.Mesh(new THREE.SphereGeometry(9, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), moundMat);
+        mound.scale.set(1, 0.55, 1);
+        mound.position.set(cx, base - 0.6, cz - 6);
+        mound.receiveShadow = true;
+        mound.castShadow = true;
+        this.group.add(mound);
+        this.colliders.add({ kind: 'circle', x: cx, z: cz - 6, r: 8.2, minY: base - 2, maxY: base + 4.2, owner: 'landmark' });
+        this.box(1.0, 4.2, 1.0, cx - 2.1, base, cz + 2.2, this.stone);
+        this.box(1.0, 4.2, 1.0, cx + 2.1, base, cz + 2.2, this.stone);
+        this.box(5.4, 0.9, 1.2, cx, base + 4.2, cz + 2.2, this.darkStone);
+        // dark doorway
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4.1), new THREE.MeshBasicMaterial({ color: 0x050405 }));
+        door.position.set(cx, base + 2.05, cz + 1.75);
+        this.group.add(door);
+        for (let i = 0; i < 3; i++) this.box(3.2, 0.25, 0.8, cx, base - 0.1 - i * 0.12, cz + 3.4 + i * 0.8, this.stone, 0, false);
+        const runeMat = new THREE.MeshStandardMaterial({ color: 0xb06aff, emissive: 0x8a4aff, emissiveIntensity: 1.2 });
+        this.pulses.push({ mat: runeMat, base: 1.2, speed: 1.4 });
+        for (const [x, kind] of [
+          [-1.2, 0],
+          [0, 1],
+          [1.2, 2],
+        ] as const) {
+          const geo = kind === 0 ? new THREE.CircleGeometry(0.22, 14) : kind === 1 ? new THREE.RingGeometry(0.12, 0.22, 14, 1, 0.6, Math.PI * 1.4) : new THREE.CircleGeometry(0.2, 5);
+          const m = new THREE.Mesh(geo, runeMat);
+          m.position.set(cx + x, base + 4.65, cz + 2.81);
+          this.group.add(m);
+        }
+        this.lights.push({ pos: new THREE.Vector3(cx, base + 2, cz + 3), color: 0xb06aff, intensity: 8, distance: 12 });
+        this.interactables.push({ id: 'crypt_door', kind: 'dungeon', locationId: loc.id, pos: new THREE.Vector3(cx, base + 1, cz + 2.4), radius: 2.8, label: '묘소로 들어가기' });
+        this.tablet(loc, cx + 4.5, cz + 4.5, -0.5);
         break;
       }
       case 'wreck': {

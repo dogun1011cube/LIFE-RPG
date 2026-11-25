@@ -39,6 +39,10 @@ export class Enemy {
   despawning = 0;
   /** Simple obstacle avoidance: when progress stalls, steer sideways for a moment. */
   stuck = 0;
+  /** seconds of frost slow remaining */
+  slowTime = 0;
+  /** custom stagger duration for the current hurt state (parry) */
+  staggerFor = 0;
   detour = 0;
   detourSign = 1;
   lastPos = new THREE.Vector3();
@@ -90,10 +94,10 @@ export class EnemyManager {
     this.boss = null;
   }
 
-  spawn(defId: string, x: number, z: number): Enemy {
+  spawn(defId: string, x: number, z: number, atY?: number): Enemy {
     const def = ENEMIES[defId];
     // top-most walkable surface (ruins / buildings included), not just the terrain underneath
-    const y = groundAt(this.game.terrain, this.game.colliders, x, z, def.radius, this.game.terrain.heightAt(x, z) + 30, 0);
+    const y = atY ?? groundAt(this.game.terrain, this.game.colliders, x, z, def.radius, this.game.terrain.heightAt(x, z) + 30, 0);
     const e = new Enemy(def, new THREE.Vector3(x, y + (def.flying ? 0.6 : 0), z));
     this.list.push(e);
     this.group.add(e.rig.root);
@@ -123,7 +127,7 @@ export class EnemyManager {
     e.setState('chase');
     e.cooldown = 2;
     this.game.audio.play('boss');
-    this.game.events.emit('banner', { title: e.def.name, subtitle: '고대의 수호자가 깨어났다', kind: 'boss' });
+    this.game.events.emit('banner', { title: e.def.name, subtitle: e.def.bossTitle ?? '', kind: 'boss' });
     this.game.particles.burst(e.body.pos.clone().setY(e.body.pos.y + 2), 0x5fe0f0, 40, 8, 0.2);
     this.game.cameraRig.shake(0.8);
   }
@@ -135,6 +139,7 @@ export class EnemyManager {
 
   private trySpawn() {
     const game = this.game;
+    if (game.inDungeon) return;
     const max = game.quality.maxEnemies;
     if (this.list.length >= max) return;
     const p = game.player.body.pos;
@@ -179,7 +184,8 @@ export class EnemyManager {
   }
 
   private chooseAttack(e: Enemy, dist: number): AttackDef | null {
-    const opts = e.def.attacks.filter((a) => dist <= a.range && dist >= (a.minRange ?? 0) && (a.phase ?? 1) <= e.phase);
+    const minions = this.list.filter((o) => !o.removed && o.state !== 'dead' && o !== e && o.def.id === 'skeleton').length;
+    const opts = e.def.attacks.filter((a) => dist <= a.range && dist >= (a.minRange ?? 0) && (a.phase ?? 1) <= e.phase && (a.kind !== 'summon' || minions < 3));
     if (opts.length === 0) return null;
     const total = opts.reduce((s, a) => s + (a.weight ?? 1), 0);
     let r = Math.random() * total;
@@ -212,6 +218,16 @@ export class EnemyManager {
       (e.telegraph.material as THREE.Material).dispose();
       e.telegraph = null;
     }
+  }
+
+  /** A perfect parry: long stagger, cancels the attack. */
+  onParried(e: Enemy) {
+    if (e.state === 'dead' || e.removed) return;
+    this.hideTelegraph(e);
+    e.setState('hurt');
+    e.staggerFor = e.def.boss ? 0.9 : 1.5;
+    e.body.vel.set(0, 0, 0);
+    e.flash = 1;
   }
 
   /** Called by combat when the player hits an enemy. */
@@ -265,7 +281,7 @@ export class EnemyManager {
       let targetYaw = e.yaw;
 
       // Despawn far / daylight wisps
-      if (!def.boss && !e.aggro && dist > 115) {
+      if (!def.boss && !def.dungeon && !e.aggro && dist > 115) {
         this.removeEnemy(e);
         continue;
       }
@@ -371,13 +387,13 @@ export class EnemyManager {
             e.body.vel.z = e.lungeDir.z * (atk.lungeSpeed ?? 8);
             if (!e.attackHit && dist < def.radius + 0.9) {
               e.attackHit = true;
-              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 6 });
+              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 6, source: e });
             }
           } else if (atk.kind === 'melee' && !e.attackHit) {
             e.attackHit = true;
             const ang = Math.abs(angleDiff(e.yaw, toPlayerYaw));
             if (dist < atk.range + 0.6 && ang < (((atk.arc ?? 90) / 2) * Math.PI) / 180 + 0.2) {
-              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 5 });
+              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 5, source: e });
             }
           }
           if (e.stateTime >= atk.active) {
@@ -398,7 +414,11 @@ export class EnemyManager {
           break;
         }
         case 'hurt': {
-          if (e.stateTime > (def.model === 'golem' || def.boss ? 0.25 : 0.4)) e.setState('chase');
+          const dur = e.staggerFor > 0 ? e.staggerFor : def.model === 'golem' || def.boss ? 0.25 : 0.4;
+          if (e.stateTime > dur) {
+            e.staggerFor = 0;
+            e.setState('chase');
+          }
           break;
         }
         case 'return': {
@@ -447,7 +467,8 @@ export class EnemyManager {
       e.yaw = dampAngle(e.yaw, targetYaw, e.state === 'windup' ? 6 : 9, dt);
       if (e.state !== 'attack' && e.state !== 'hurt' && e.state !== 'dead') {
         const dir = moveSpeed >= 0 ? targetYaw : targetYaw;
-        const sp = Math.abs(moveSpeed) * (moveSpeed < 0 ? -1 : 1);
+        if (e.slowTime > 0) e.slowTime -= dt;
+        const sp = moveSpeed * (e.slowTime > 0 ? 0.45 : 1);
         const tvx = Math.sin(dir) * sp;
         const tvz = Math.cos(dir) * sp;
         e.body.vel.x += (tvx - e.body.vel.x) * Math.min(1, dt * 8);
@@ -530,7 +551,7 @@ export class EnemyManager {
       game.particles.burst(new THREE.Vector3(c.x, game.terrain.heightAt(c.x, c.z) + 0.2, c.z), 0x8a7a66, 26, 6, 0.18);
       const pp = game.player.body.pos;
       if (Math.hypot(pp.x - c.x, pp.z - c.z) < (atk.aoe ?? 3) + 0.3 && Math.abs(pp.y - c.y) < 2.5) {
-        game.damagePlayer(def.damage * atk.mult, c, { knock: 9 });
+        game.damagePlayer(def.damage * atk.mult, c, { knock: 9, unblockable: true });
       }
     } else if (atk.kind === 'ranged') {
       const pp = game.player.body.pos;
@@ -538,8 +559,9 @@ export class EnemyManager {
       from.y += 1.0;
       const target = new THREE.Vector3(pp.x, pp.y + 1.0, pp.z).addScaledVector(game.player.body.vel, 0.25);
       const vel = target.sub(from).normalize().multiplyScalar(atk.projSpeed ?? 10);
-      game.projectiles.spawn(from, vel, def.damage * atk.mult, 0xa07aff, { homing: 0.8, slow: true });
-      game.audio.play('shoot');
+      const isArrow = def.model === 'archer';
+      game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0xa07aff, { homing: atk.homing ?? 0.8, slow: !isArrow });
+      game.audio.play(isArrow ? 'swing' : 'shoot');
     } else if (atk.kind === 'burst') {
       const n = atk.projCount ?? 8;
       const from = e.body.pos.clone();
@@ -547,10 +569,23 @@ export class EnemyManager {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + e.time;
         const vel = new THREE.Vector3(Math.sin(a), -0.05, Math.cos(a)).multiplyScalar(atk.projSpeed ?? 10);
-        game.projectiles.spawn(from, vel, def.damage * atk.mult, 0x5fe0f0, { life: 3.5 });
+        game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0x5fe0f0, { life: 3.5 });
       }
       game.audio.play('shoot');
       game.audio.play('slam', 0.5);
+    } else if (atk.kind === 'summon' && atk.summon) {
+      for (let i = 0; i < (atk.count ?? 1); i++) {
+        const a = Math.random() * Math.PI * 2;
+        const x = e.body.pos.x + Math.cos(a) * 3;
+        const z = e.body.pos.z + Math.sin(a) * 3;
+        const m = this.spawn(atk.summon, x, z, e.body.pos.y);
+        m.aggro = true;
+        m.setState('chase');
+        m.home.copy(e.home);
+        game.particles.burst(m.body.pos.clone().setY(m.body.pos.y + 0.5), 0xb06aff, 16, 3, 0.1);
+      }
+      game.audio.play('boss', 0.6);
+      game.events.emit('notify', { text: `${def.name}이(가) 해골을 불러냈다!`, kind: 'warn' });
     }
   }
 }

@@ -66,6 +66,7 @@ export class DiscoverySystem {
   }
 
   regionName(): string {
+    if (this.game.inDungeon) return '잊혀진 묘소';
     return REGIONS.find((r) => r.id === this.currentRegion)?.name ?? '';
   }
 
