@@ -375,3 +375,46 @@ kbd {
   .hud-quests { top: 250px; }
   .hud-notes { top: 36%; }
 }
+
+/* ── Phase 2: mana, skills, blocking ───────── */
+.bar.mana { height: 7px; }
+.bar.mana .bar-fill { background: linear-gradient(180deg, #8ac4ff, #3a7cff 60%, #1e3f8a); }
+.float-text.mana { color: #8ad0ff; }
+.buff.gold { border-color: rgba(255, 210, 120, 0.8); background: rgba(50, 36, 10, 0.85); }
+.crosshair.block { width: 18px; height: 18px; margin: -9px 0 0 -9px; background: none; border: 2px solid rgba(255, 230, 160, 0.9); border-radius: 50% 50% 40% 40%; }
+.bars-row { display: flex; gap: 18px; align-items: flex-end; }
+.skillbar { display: flex; gap: 6px; }
+.sk-slot { position: relative; width: 50px; height: 50px; border-radius: 50%; background: rgba(12, 12, 20, 0.78); border: 2px solid var(--line); display: grid; place-items: center; overflow: hidden; pointer-events: auto; cursor: pointer; box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.8); }
+.sk-slot.empty { opacity: 0.45; border-style: dashed; }
+.sk-slot.lack .sk-icon { filter: grayscale(1) brightness(0.6); }
+.sk-icon { font-size: 22px; line-height: 1; }
+.sk-cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.62); }
+.sk-cdnum { position: absolute; font-weight: 900; font-size: 14px; text-shadow: 0 1px 2px #000; }
+.sk-slot .hb-key { top: auto; bottom: 1px; left: 50%; transform: translateX(-50%); }
+.sk-cost { position: absolute; top: 3px; right: 9px; font-size: 9px; font-weight: 900; color: #cfe; text-shadow: 0 1px 2px #000; }
+.sk-cost.mana { color: #8ac4ff; }
+
+.skills-layout { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+.skills-head { display: flex; gap: 16px; align-items: center; }
+.sp-count { font-family: var(--title); font-weight: 700; letter-spacing: 1px; padding: 4px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.sp-count.has { color: #1a1208; background: var(--gold); border-color: var(--gold-bright); animation: pulse 1.6s infinite; }
+.skill-trees { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; overflow: auto; flex: 1; }
+.skill-tree { display: flex; flex-direction: column; gap: 8px; }
+.tree-head { font-family: var(--title); font-size: 18px; font-weight: 700; letter-spacing: 2px; display: flex; flex-direction: column; }
+.tree-head small { font-family: var(--font); font-size: 11px; color: var(--muted); letter-spacing: 0; font-weight: 400; }
+.skill-card { border: 1px solid var(--line-soft); border-radius: 8px; padding: 9px 10px; background: rgba(255, 255, 255, 0.03); display: flex; flex-direction: column; gap: 5px; }
+.skill-card.learned { background: rgba(255, 255, 255, 0.06); }
+.skill-card.locked { opacity: 0.55; }
+.sc-top { display: flex; gap: 10px; align-items: center; }
+.sc-icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
+.sc-title { font-weight: 700; font-size: 14px; display: flex; flex-direction: column; gap: 3px; }
+.kind { font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; font-weight: 700; }
+.kind.active { background: rgba(255, 140, 90, 0.2); color: #ffb08a; }
+.kind.passive { background: rgba(150, 200, 255, 0.15); color: #bfdcff; }
+.pips { display: flex; gap: 4px; }
+.pips span { width: 14px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); }
+.sc-desc { font-size: 12px; line-height: 1.5; color: #ddd3bd; }
+.sc-next { font-size: 11px; color: var(--muted); }
+.sc-meta { font-size: 11px; color: #8ac4ff; }
+.sc-req { font-size: 11px; color: #ffb3a8; }
+.sc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

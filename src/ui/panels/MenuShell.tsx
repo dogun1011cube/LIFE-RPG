@@ -10,9 +10,13 @@ import { Inv } from '../../game/systems/Inventory';
 import { drawWorldMap } from '../mapDraw';
 import type { MenuTab } from '../../game/Game';
 import type { Slot } from '../../game/state/types';
+import { SKILLS, TREE_INFO, SKILL_KEY_LABELS, type SkillTree } from '../../game/data/skills';
+import { rank } from '../../game/systems/Stats';
+import { DUNGEON_ORIGIN } from '../../game/world/Dungeon';
 
 const TABS: { id: MenuTab; name: string; key: string }[] = [
   { id: 'inventory', name: '인벤토리', key: 'Tab' },
+  { id: 'skills', name: '스킬', key: 'K' },
   { id: 'crafting', name: '제작', key: 'C' },
   { id: 'quests', name: '퀘스트', key: 'J' },
   { id: 'map', name: '지도', key: 'M' },
@@ -39,6 +43,7 @@ export function MenuShell() {
         </div>
         <div className="window-body">
           {tab === 'inventory' && <InventoryTab />}
+          {tab === 'skills' && <SkillsTab />}
           {tab === 'crafting' && <CraftingTab />}
           {tab === 'quests' && <QuestsTab />}
           {tab === 'map' && <MapTab />}
@@ -98,6 +103,14 @@ function ItemDetails({ id, children }: { id: string; children?: React.ReactNode 
         {def.weapon && <div>사거리 {def.weapon.reach.toFixed(1)}m</div>}
         {def.tool && <div>{def.tool.kind === 'axe' ? '벌목' : '채광'} 위력 {def.tool.power} · 등급 {def.tool.tier}</div>}
         {def.armor && <div>방어력 +{def.armor.defense}</div>}
+        {def.trinket?.hp && <div>최대 체력 +{def.trinket.hp}</div>}
+        {def.trinket?.mana && <div>최대 마나 +{def.trinket.mana}</div>}
+        {def.trinket?.manaRegen && <div>마나 회복 +{def.trinket.manaRegen}/초</div>}
+        {def.trinket?.crit && <div>치명타 확률 +{Math.round(def.trinket.crit * 100)}%</div>}
+        {def.trinket?.attackPct && <div>공격력 +{Math.round(def.trinket.attackPct * 100)}%</div>}
+        {def.trinket?.defense && <div>방어력 +{def.trinket.defense}</div>}
+        {def.use?.mana && <div>마나 회복 +{def.use.mana}</div>}
+        {def.use?.resetSkills && <div>모든 스킬 포인트 반환</div>}
         {def.use?.heal && <div>체력 회복 +{def.use.heal}</div>}
         {def.use?.hot && (
           <div>
@@ -132,10 +145,10 @@ function InventoryTab() {
           경험치 {p.xp} / {need}
         </div>
         <div className="equip-row">
-          {(['weapon', 'armor'] as const).map((k) => (
+          {(['weapon', 'armor', 'trinket'] as const).map((k) => (
             <div key={k} className="equip-slot" onClick={() => game.unequip(k)} title="클릭하여 해제">
-              <div className="slot filled">{p.equipment[k] ? <ItemIcon id={p.equipment[k]!} size={40} /> : <span className="muted small">{k === 'weapon' ? '무기' : '방어구'}</span>}</div>
-              <div className="equip-label">{p.equipment[k] ? ITEMS[p.equipment[k]!].name : k === 'weapon' ? '무기 없음' : '방어구 없음'}</div>
+              <div className="slot filled">{p.equipment[k] ? <ItemIcon id={p.equipment[k]!} size={40} /> : <span className="muted small">{{ weapon: '무기', armor: '방어구', trinket: '장신구' }[k]}</span>}</div>
+              <div className="equip-label">{p.equipment[k] ? ITEMS[p.equipment[k]!].name : { weapon: '무기 없음', armor: '방어구 없음', trinket: '장신구 없음' }[k]}</div>
             </div>
           ))}
         </div>
@@ -149,6 +162,16 @@ function InventoryTab() {
           <div>
             <span>스태미나</span>
             <b>{st.maxStamina}</b>
+          </div>
+          <div>
+            <span>마나</span>
+            <b>
+              {Math.floor(p.mana ?? 0)} / {st.maxMana}
+            </b>
+          </div>
+          <div>
+            <span>마력</span>
+            <b>{Math.round(st.magicPower)}</b>
           </div>
           <div>
             <span>공격력</span>
@@ -226,7 +249,7 @@ function InventoryTab() {
         {slot && def ? (
           <ItemDetails id={slot.id}>
             <div className="detail-actions">
-              {(def.category === 'weapon' || def.category === 'armor') && (
+              {(def.category === 'weapon' || def.category === 'armor' || def.category === 'accessory') && (
                 <button className="btn primary" onClick={() => game.equipFromSlot(sel!)}>
                   장착
                 </button>
@@ -453,10 +476,11 @@ function MapTab() {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const drag = useRef<{ x: number; y: number; cx: number; cz: number } | null>(null);
-  const span = 800 / zoom;
+  const span = (game.inDungeon ? 90 : 800) / zoom;
   const pp = game.player.body.pos;
-  const cx = center ? center[0] : zoom === 1 ? 0 : pp.x;
-  const cz = center ? center[1] : zoom === 1 ? 0 : pp.z;
+  const inD = game.inDungeon;
+  const cx = center ? center[0] : inD ? DUNGEON_ORIGIN.x : zoom === 1 ? 0 : pp.x;
+  const cz = center ? center[1] : inD ? DUNGEON_ORIGIN.z + 34 : zoom === 1 ? 0 : pp.z;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -517,3 +541,76 @@ function MapTab() {
     </div>
   );
 }
+
+function SkillsTab() {
+  const game = useGame();
+  const p = game.state.player;
+  const trees: SkillTree[] = ['combat', 'survival', 'arcane'];
+  return (
+    <div className="skills-layout">
+      <div className="skills-head">
+        <span className={`sp-count ${p.skillPoints > 0 ? 'has' : ''}`}>스킬 포인트 {p.skillPoints}</span>
+        <span className="muted small">레벨이 오를 때마다 1포인트. 액티브 스킬은 R · T · G · V 칸에 등록해 사용합니다. 망각의 서로 초기화할 수 있습니다.</span>
+      </div>
+      <div className="skill-trees">
+        {trees.map((t) => (
+          <div key={t} className="skill-tree">
+            <div className="tree-head" style={{ color: TREE_INFO[t].color }}>
+              {TREE_INFO[t].name}
+              <small>{TREE_INFO[t].desc}</small>
+            </div>
+            {SKILLS.filter((s) => s.tree === t).map((s) => {
+              const r = rank(p, s.id);
+              const c = game.canLearn(s.id);
+              const locked = r === 0 && !c.ok && c.reason !== '스킬 포인트 부족';
+              return (
+                <div key={s.id} className={`skill-card ${r > 0 ? 'learned' : ''} ${locked ? 'locked' : ''}`} style={{ borderColor: r > 0 ? TREE_INFO[t].color : undefined }}>
+                  <div className="sc-top">
+                    <span className="sc-icon" style={{ background: TREE_INFO[t].color + '33' }}>
+                      {s.icon}
+                    </span>
+                    <div className="sc-title">
+                      <div>
+                        {s.name} <span className={`kind ${s.kind}`}>{s.kind === 'active' ? '액티브' : '패시브'}</span>
+                      </div>
+                      <div className="pips">
+                        {Array.from({ length: s.maxRank }, (_, i) => (
+                          <span key={i} className={i < r ? 'on' : ''} style={i < r ? { background: TREE_INFO[t].color } : undefined} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="sc-desc">{s.describe(Math.max(1, r))}</div>
+                  {r > 0 && r < s.maxRank && <div className="sc-next">다음 단계: {s.describe(r + 1)}</div>}
+                  {s.active && (
+                    <div className="sc-meta">
+                      {s.active.mana ? `마나 ${s.active.mana}` : `스태미나 ${s.active.stamina}`} · 재사용 {s.active.cooldown}초
+                    </div>
+                  )}
+                  {locked && <div className="sc-req">🔒 {c.reason}</div>}
+                  <div className="sc-actions">
+                    {r < s.maxRank && (
+                      <button className="btn small primary" disabled={!c.ok} onClick={() => game.learnSkill(s.id)}>
+                        {r === 0 ? '배우기' : '강화'} (1P)
+                      </button>
+                    )}
+                    {s.kind === 'active' && r > 0 && (
+                      <div className="assign">
+                        {SKILL_KEY_LABELS.map((k, i) => (
+                          <button key={k} className={`btn tiny ${p.skillBar[i] === s.id ? 'on' : ''}`} onClick={() => game.assignSkill(i, p.skillBar[i] === s.id ? null : s.id)}>
+                            {k}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+

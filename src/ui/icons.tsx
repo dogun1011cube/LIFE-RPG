@@ -188,6 +188,50 @@ function shapeSvg(shape: string, c1: string, c2: string): ReactElement {
           <circle cx="34" cy="30" r="4" fill={c2} />
         </g>
       );
+    case 'bone':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M14 34 L34 14" stroke={c1} strokeWidth="6" strokeLinecap="round" />
+          <circle cx="11" cy="33" r="4" fill={c1} />
+          <circle cx="15" cy="37" r="4" fill={c1} />
+          <circle cx="33" cy="11" r="4" fill={c1} />
+          <circle cx="37" cy="15" r="4" fill={c1} />
+          <path d="M18 31 L31 18" stroke={c2} strokeWidth="1.5" />
+        </g>
+      );
+    case 'charm':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M14 6 C18 18 30 18 34 6" fill="none" stroke="#8a6a4a" strokeWidth="2" />
+          <path d="M24 16 L30 26 L24 42 L18 26 Z" fill={c1} />
+          <circle cx="24" cy="26" r="3" fill={c2} />
+        </g>
+      );
+    case 'ring':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <ellipse cx="24" cy="30" rx="13" ry="10" fill="none" stroke={c1} strokeWidth="5" />
+          <path d="M24 10 L31 18 L24 25 L17 18 Z" fill={c2} />
+          <path d="M24 12 L28 18 L24 22" fill="white" opacity="0.5" stroke="none" />
+        </g>
+      );
+    case 'amulet':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M10 6 C12 20 36 20 38 6" fill="none" stroke="#c9a45c" strokeWidth="2" strokeDasharray="3 2" />
+          <circle cx="24" cy="30" r="11" fill={c1} />
+          <circle cx="24" cy="30" r="5.5" fill={c2} />
+        </g>
+      );
+    case 'tome':
+      return (
+        <g stroke={stroke} strokeWidth="1.5">
+          <rect x="10" y="7" width="27" height="34" rx="2" fill={c1} />
+          <rect x="12" y="35" width="25" height="5" fill="#e9dcb5" />
+          <path d="M23 15 L28 22 L23 29 L18 22 Z" fill={c2} />
+          <rect x="10" y="7" width="4" height="34" fill="rgba(0,0,0,0.3)" stroke="none" />
+        </g>
+      );
     default:
       return <circle cx="24" cy="24" r="14" fill={c1} />;
   }

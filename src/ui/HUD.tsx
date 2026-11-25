@@ -7,6 +7,7 @@ import { xpToNext } from '../game/systems/Stats';
 import { Inv } from '../game/systems/Inventory';
 import type { GameEvents, NotifyKind } from '../game/core/Events';
 import { drawWorldMap } from './mapDraw';
+import { SKILL_BY_ID, SKILL_KEY_LABELS, TREE_INFO } from '../game/data/skills';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label?: boolean }) {
   const pct = Math.max(0, Math.min(1, value / max)) * 100;
@@ -26,6 +27,7 @@ const BUFF_INFO: Record<string, { name: string; icon: string }> = {
   well_fed: { name: '배부름', icon: '🍖' },
   hot: { name: '치유', icon: '✚' },
   slow: { name: '둔화', icon: '❄' },
+  riposte: { name: '반격 (다음 공격 치명타)', icon: '⚔' },
 };
 
 function StatusPanel() {
@@ -44,15 +46,47 @@ function StatusPanel() {
         </div>
         <Bar value={p.hp} max={st.maxHp} cls="hp" label />
         <Bar value={p.stamina} max={st.maxStamina} cls="stamina" />
+        <Bar value={p.mana ?? 0} max={st.maxMana} cls="mana" />
         <div className="buffs">
           {p.buffs.map((b) => (
-            <div key={b.id} className={`buff ${b.id === 'slow' ? 'debuff' : ''}`} title={BUFF_INFO[b.id]?.name}>
+            <div key={b.id} className={`buff ${b.id === 'slow' ? 'debuff' : ''} ${b.id === 'riposte' ? 'gold' : ''}`} title={BUFF_INFO[b.id]?.name}>
               <span>{BUFF_INFO[b.id]?.icon ?? '•'}</span>
               <small>{Math.ceil(b.time)}</small>
             </div>
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SkillBar() {
+  const game = useGame();
+  const p = game.state.player;
+  return (
+    <div className="skillbar">
+      {p.skillBar.map((id, i) => {
+        const def = id ? SKILL_BY_ID[id] : null;
+        const cd = id ? (game.player.cooldowns.get(id) ?? 0) : 0;
+        const max = def?.active?.cooldown ?? 1;
+        const a = def?.active;
+        const lack = !!a && ((!!a.mana && (p.mana ?? 0) < a.mana) || (!!a.stamina && p.stamina < a.stamina));
+        return (
+          <div
+            key={i}
+            className={`sk-slot ${def ? '' : 'empty'} ${lack ? 'lack' : ''}`}
+            style={def ? { borderColor: TREE_INFO[def.tree].color } : undefined}
+            onClick={() => game.useSkill(i)}
+            title={def ? def.name : '빈 스킬 칸 ([K] 스킬 창에서 등록)'}
+          >
+            {def && <span className="sk-icon">{def.icon}</span>}
+            {cd > 0 && <div className="sk-cd" style={{ height: `${(cd / max) * 100}%` }} />}
+            {cd > 0 && <span className="sk-cdnum">{cd < 1 ? cd.toFixed(1) : Math.ceil(cd)}</span>}
+            <span className="hb-key">{SKILL_KEY_LABELS[i]}</span>
+            {a?.mana ? <span className="sk-cost mana">{a.mana}</span> : a?.stamina ? <span className="sk-cost">{a.stamina}</span> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -72,6 +106,7 @@ function Hotbar() {
           {p.xp} / {need}
         </span>
       </div>
+      <div className="bars-row">
       <div className="hotbar">
         <div className="hb-slot weapon" title="장착 무기">
           {p.equipment.weapon && <ItemIcon id={p.equipment.weapon} size={38} />}
@@ -87,6 +122,8 @@ function Hotbar() {
             </div>
           );
         })}
+      </div>
+      <SkillBar />
       </div>
     </div>
   );
@@ -359,6 +396,9 @@ function KeyHints() {
         <kbd>Tab</kbd>인벤토리
       </span>
       <span>
+        <kbd>K</kbd>스킬
+      </span>
+      <span>
         <kbd>C</kbd>제작
       </span>
       <span>
@@ -381,6 +421,7 @@ export function HUD() {
   const game = useGame();
   const showClickHint = game.ui.panel === null && !game.input.locked && !game.player.dead;
   const lowHp = game.state.player.hp / game.stats.maxHp < 0.25 && !game.player.dead;
+  const blocking = game.player.blocking;
   return (
     <div className="hud">
       {lowHp && <div className="low-hp" />}
@@ -390,7 +431,7 @@ export function HUD() {
       <Notifications />
       <Banner />
       <BossBar />
-      <div className={`crosshair ${game.building.active ? 'build' : ''}`} />
+      <div className={`crosshair ${game.building.active ? 'build' : ''} ${blocking ? 'block' : ''}`} />
       <Prompt />
       {game.building.active ? <BuildBar /> : <Hotbar />}
       {!game.building.active && <KeyHints />}

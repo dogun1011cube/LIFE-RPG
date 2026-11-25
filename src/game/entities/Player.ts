@@ -356,9 +356,12 @@ export class Player {
     } else {
       moveBody(this.body, dt, game.terrain, game.colliders, PLAYER.gravity);
     }
-    const lim = WORLD.size / 2 - 12;
-    this.body.pos.x = Math.max(-lim, Math.min(lim, this.body.pos.x));
-    this.body.pos.z = Math.max(-lim, Math.min(lim, this.body.pos.z));
+    // keep the player on the island (the crypt interior lives outside the island bounds)
+    if (!game.inDungeon) {
+      const lim = WORLD.size / 2 - 12;
+      this.body.pos.x = Math.max(-lim, Math.min(lim, this.body.pos.x));
+      this.body.pos.z = Math.max(-lim, Math.min(lim, this.body.pos.z));
+    }
 
     // Actions
     if (this.action !== 'none') {

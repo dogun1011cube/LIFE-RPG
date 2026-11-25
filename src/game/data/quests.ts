@@ -147,7 +147,7 @@ export const QUESTS: QuestDef[] = [
     rewards: { xp: 90, items: [{ item: 'health_potion', qty: 1 }] },
   },
   {
-    id: 's_crypt', title: '잊혀진 묘소', chain: 'side', requires: ['q_shelter'],
+    id: 's_crypt', title: '잊혀진 묘소', chain: 'side', requires: ['q_hunt'],
     summary: '서쪽 숲의 지하 묘소를 탐험하자.',
     description: '섬 서쪽 언덕에 오래된 묘소가 있다고 한다. 입구의 경고문이 철문을 여는 방법을 알려줄 것이다. 묘지기는 해골을 불러내니 서두르지 말고 싸워라.',
     objectives: [

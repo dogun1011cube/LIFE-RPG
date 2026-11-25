@@ -2,6 +2,7 @@ import { WORLD } from '../game/config';
 import { LOCATIONS } from '../game/data/locations';
 import { EXPLORE_RES } from '../game/systems/Discovery';
 import type { Game } from '../game/Game';
+import { DUNGEON_ORIGIN } from '../game/world/Dungeon';
 
 let fogCanvas: HTMLCanvasElement | null = null;
 let fogData: ImageData | null = null;
@@ -33,6 +34,10 @@ export interface MapDrawOpts {
 
 /** Draws the world map centred on (cx, cz) showing `span` metres across the canvas width. */
 export function drawWorldMap(ctx: CanvasRenderingContext2D, game: Game, cx: number, cz: number, span: number, W: number, H: number, opts: MapDrawOpts) {
+  if (game.inDungeon) {
+    drawDungeonMap(ctx, game, cx, cz, span, W, H, opts.scale);
+    return;
+  }
   const img = game.mapImage;
   ctx.fillStyle = '#16150f';
   ctx.fillRect(0, 0, W, H);
@@ -171,4 +176,52 @@ export function drawWorldMap(ctx: CanvasRenderingContext2D, game: Game, cx: numb
   ctx.fill();
   ctx.stroke();
   ctx.restore();
+}
+
+/** Interior map: the crypt's floor cells, enemies and the player. */
+function drawDungeonMap(ctx: CanvasRenderingContext2D, game: Game, cx: number, cz: number, span: number, W: number, H: number, s: number) {
+  ctx.fillStyle = '#0b0a0d';
+  ctx.fillRect(0, 0, W, H);
+  const spanZ = span * (H / W);
+  const toX = (x: number) => ((x - cx) / span) * W + W / 2;
+  const toY = (z: number) => ((z - cz) / spanZ) * H + H / 2;
+  const cell = (2 / span) * W;
+  ctx.fillStyle = '#4a4438';
+  for (const c of game.dungeon.cells) ctx.fillRect(toX(c.x) - cell / 2 - 0.5, toY(c.z) - cell / 2 - 0.5, cell + 1, cell + 1);
+  // gate
+  if (!game.dungeon.gateOpen) {
+    ctx.fillStyle = '#c94a3a';
+    ctx.fillRect(toX(DUNGEON_ORIGIN.x - 2), toY(DUNGEON_ORIGIN.z + 38) - 1.5, (4 / span) * W, 3);
+  }
+  for (const it of game.dungeon.interactables) {
+    if (it.kind === 'chest' && game.state.openedChests.includes(it.id)) continue;
+    ctx.fillStyle = it.kind === 'portal' ? '#5fe0f0' : it.kind === 'chest' ? '#ffd27a' : it.kind === 'lever' ? '#e9c46a' : '#bfb6a0';
+    ctx.beginPath();
+    ctx.arc(toX(it.pos.x), toY(it.pos.z), 3 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const e of game.enemies.list) {
+    if (e.state === 'dead') continue;
+    ctx.fillStyle = e.def.boss ? '#ff3a3a' : '#ff6a4a';
+    ctx.beginPath();
+    ctx.arc(toX(e.body.pos.x), toY(e.body.pos.z), (e.def.boss ? 5 : 2.6) * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const pp = game.player.body.pos;
+  ctx.save();
+  ctx.translate(toX(pp.x), toY(pp.z));
+  ctx.rotate(-game.player.yaw + Math.PI);
+  ctx.fillStyle = '#fff6e0';
+  ctx.beginPath();
+  ctx.moveTo(0, -7 * s);
+  ctx.lineTo(5 * s, 5 * s);
+  ctx.lineTo(0, 2.5 * s);
+  ctx.lineTo(-5 * s, 5 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = 'rgba(241,230,200,0.7)';
+  ctx.font = `${Math.round(11 * s)}px "Noto Sans KR", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('지하 · 잊혀진 묘소', 8, H - 10);
 }
