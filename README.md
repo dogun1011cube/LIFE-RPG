@@ -8,7 +8,6 @@
 ## 실행 방법
 
 ```bash
-cd eternum
 npm install
 npm run dev          # http://localhost:5173 접속
 ```
