@@ -157,6 +157,37 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: { xp: 400, items: [{ item: 'mana_potion', qty: 2 }] },
   },
+  {
+    id: 's_rested', title: '따뜻한 보금자리', chain: 'side', requires: ['q_shelter'],
+    summary: '지붕 아래 불 곁에서 쉬자.',
+    description: '지붕이 있는 실내에서 횃불이나 모닥불 근처에 잠시 머물면 "휴식" 상태가 된다. 침대, 탁자, 의자, 책장, 카펫 같은 가구가 다양할수록 안락도가 올라 휴식이 오래 지속된다.',
+    objectives: [{ type: 'counter', key: 'rested', count: 1, label: '휴식 상태 얻기' }],
+    rewards: { xp: 80 },
+  },
+  {
+    id: 's_roads', title: '길을 내다', chain: 'side', requires: ['q_shelter'],
+    summary: '거점까지 길을 깔자.',
+    description: '흙길이나 돌길은 지형을 따라 깔리고, 길 위에서는 더 빨리 달릴 수 있다. 자주 다니는 곳에 길을 놓아 보자.',
+    objectives: [{ type: 'have_built', shapes: ['road'], count: 10, label: '길' }],
+    rewards: { xp: 120 },
+  },
+  {
+    id: 's_architect', title: '설계자', chain: 'side', requires: ['q_shelter'],
+    summary: '지은 건물을 설계도로 저장하자.',
+    description: '건축 모드에서 건물을 바라보고 [P]를 누르면 연결된 건물 전체를 설계도로 저장한다. 설계도 분류에서 골라 다른 곳에 한 번에 지을 수 있다.',
+    objectives: [{ type: 'counter', key: 'blueprint:save', count: 1, label: '설계도 저장' }],
+    rewards: { xp: 100 },
+  },
+  {
+    id: 's_fortress', title: '요새 건설', chain: 'side', requires: ['q_copper'],
+    summary: '성벽과 성탑을 세우자.',
+    description: '작업대에서 석재 벽돌을 만들면 성벽과 성탑을 지을 수 있다. 성탑 꼭대기의 화로는 넓은 범위를 밝혀 밤의 괴물이 다가오지 못하게 한다.',
+    objectives: [
+      { type: 'build', piece: 'castle_wall', count: 6 },
+      { type: 'build', piece: 'castle_tower', count: 1 },
+    ],
+    rewards: { xp: 250, items: [{ item: 'stone_brick', qty: 10 }] },
+  },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

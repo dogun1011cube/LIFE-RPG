@@ -40,7 +40,7 @@ import { rank, SKILL_POINTS_PER_LEVEL } from './systems/Stats';
 import type { Projectile } from './entities/Projectiles';
 
 export type Screen = 'loading' | 'menu' | 'playing';
-export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload';
+export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint';
 export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map';
 
 export interface Interaction {
@@ -161,6 +161,11 @@ export class Game {
   discovery!: DiscoverySystem;
   mapImage: HTMLCanvasElement | null = null;
   dungeon!: Dungeon;
+  /** Shelter state, updated once per second: under a roof, near a fire, comfort from furniture. */
+  shelter = { indoors: false, heat: false, comfort: 0 };
+  private shelterTimer = 0;
+  private restProgress = 0;
+  private upRay = new THREE.Raycaster();
   /** True while the player is inside the crypt interior. */
   inDungeon = false;
 
@@ -616,6 +621,7 @@ export class Game {
         }
       } else this.discovery.update(simDt);
       this.building.update(simDt, pp);
+      this.updateShelter(simDt);
       this.resources.update(simDt, this.state.playTime, pp, this.quality.viewDistance);
       this.env.update(simDt, pp, true);
       this.questCheckTimer -= simDt;
@@ -705,8 +711,20 @@ export class Game {
       }
       if (i.wasPressed('PageUp')) b.heightOffset = Math.min(5, b.heightOffset + 0.25);
       if (i.wasPressed('PageDown')) b.heightOffset = Math.max(-2.5, b.heightOffset - 0.25);
-      const list = b.available(b.category);
-      for (let k = 1; k <= 9; k++) if (i.wasPressed(`Digit${k}`) && list[k - 1]) b.select(list[k - 1].id);
+      if (i.wasPressed('KeyQ')) b.cycleMaterial();
+      if (i.wasPressed('KeyZ')) b.moveHovered();
+      if (i.wasPressed('KeyP')) {
+        if (b.hoverPiece) {
+          b.captureTarget = b.hoverPiece.state.id;
+          this.openPanel('blueprint');
+        } else this.events.emit('notify', { text: '설계도로 저장할 건물을 바라보고 [P]를 누르세요', kind: 'warn' });
+      }
+      if (b.blueprintMode) {
+        for (let k = 1; k <= 9; k++) if (i.wasPressed(`Digit${k}`) && b.blueprints[k - 1]) b.selectBlueprint(b.blueprints[k - 1].id);
+      } else {
+        const list = b.available(b.category);
+        for (let k = 1; k <= 9; k++) if (i.wasPressed(`Digit${k}`) && list[k - 1]) b.select(list[k - 1].id);
+      }
       if (i.wasPressed('KeyE') && this.ui.prompt && this.ui.prompt.kind !== 'node') this.ui.prompt.run();
       return;
     }
@@ -1146,6 +1164,7 @@ export class Game {
   gainXp(amount: number, _reason = '') {
     if (amount <= 0) return;
     const p = this.state.player;
+    if (p.buffs.some((b) => b.id === 'rested')) amount *= 1.1;
     p.xp += Math.round(amount);
     this.floatText.spawn(this.player.body.pos.clone().setY(this.player.body.pos.y + 2.3), `+${Math.round(amount)} XP`, 'xp');
     let leveled = false;
@@ -1440,6 +1459,47 @@ export class Game {
       L.distance = s.distance;
       L.intensity = s.intensity * night * (0.88 + Math.sin(t * 11 + i) * 0.06 + Math.sin(t * 23 + i * 2) * 0.05);
     }
+  }
+
+  // ── Shelter & rest ──────────────────────────────────────
+  private updateShelter(dt: number) {
+    this.shelterTimer -= dt;
+    if (this.shelterTimer > 0) return;
+    this.shelterTimer = 1;
+    const pp = this.player.body.pos;
+    let indoors = false;
+    let heat = false;
+    let comfort = 0;
+    if (!this.inDungeon && this.building.pieces.size > 0) {
+      this.upRay.set(new THREE.Vector3(pp.x, pp.y + 1.7, pp.z), new THREE.Vector3(0, 1, 0));
+      this.upRay.far = 9;
+      indoors = this.upRay.intersectObject(this.building.group, true).some((h) => (h.object as THREE.Mesh).isMesh);
+      const kinds = new Set<string>();
+      for (const p of this.building.pieces.values()) {
+        const d2 = (p.state.x - pp.x) ** 2 + (p.state.z - pp.z) ** 2;
+        if (d2 > 100 || Math.abs(p.state.y - pp.y) > 4) continue;
+        if (p.def.light) heat = true;
+        if (p.def.comfort) kinds.add(p.def.shape);
+      }
+      for (const lm of this.landmarks.lights) if (lm.pos.distanceToSquared(pp) < 100) heat = true;
+      comfort = Math.min(10, kinds.size);
+    }
+    const changed = indoors !== this.shelter.indoors || comfort !== this.shelter.comfort || heat !== this.shelter.heat;
+    this.shelter = { indoors, heat, comfort };
+    const p = this.state.player;
+    if (indoors && heat && !this.player.dead) {
+      this.restProgress += 1;
+      const dur = 180 + comfort * 60;
+      const existing = p.buffs.find((b) => b.id === 'rested');
+      if (existing) existing.time = Math.max(existing.time, dur);
+      else if (this.restProgress >= 6) {
+        p.buffs.push({ id: 'rested', time: dur });
+        this.state.counters.rested = (this.state.counters.rested ?? 0) + 1;
+        this.events.emit('notify', { text: `휴식 중 — 안락도 ${comfort} (스태미나·체력 회복 증가, 경험치 +10%)`, kind: 'info' });
+        this.quests.check();
+      }
+    } else this.restProgress = 0;
+    if (changed) this.bridge.bump();
   }
 
   // ── Skills ──────────────────────────────────────────────

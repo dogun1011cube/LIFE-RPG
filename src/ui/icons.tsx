@@ -188,6 +188,15 @@ function shapeSvg(shape: string, c1: string, c2: string): ReactElement {
           <circle cx="34" cy="30" r="4" fill={c2} />
         </g>
       );
+    case 'brick':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M6 28 L14 20 H42 L34 28 Z" fill={c1} />
+          <path d="M6 28 H34 V38 H6 Z" fill={c2} />
+          <path d="M34 28 L42 20 V30 L34 38 Z" fill={c2} opacity="0.8" />
+          <path d="M20 28 V38" stroke="rgba(0,0,0,0.3)" />
+        </g>
+      );
     case 'bone':
       return (
         <g stroke={stroke} strokeWidth="1.3">
@@ -247,9 +256,9 @@ export function ItemIcon({ id, size = 40 }: { id: string; size?: number }) {
   );
 }
 
-export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; material: 'wood' | 'stone'; size?: number }) {
-  const main = material === 'stone' ? '#a7a196' : '#b57f48';
-  const dark = material === 'stone' ? '#6f6a62' : '#6a4426';
+export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; material: 'wood' | 'stone' | 'marble'; size?: number }) {
+  const main = material === 'marble' ? '#ece6da' : material === 'stone' ? '#a7a196' : '#b57f48';
+  const dark = material === 'marble' ? '#c9a45c' : material === 'stone' ? '#6f6a62' : '#6a4426';
   const s = 'rgba(0,0,0,0.6)';
   let body: ReactElement;
   switch (shape) {
@@ -426,6 +435,85 @@ export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; m
           <rect x="12" y="4" width="3" height="40" fill={dark} />
           <path d="M15 8 H36 V30 L26 25 L15 30 Z" fill="#2c4a8a" />
           <circle cx="25" cy="16" r="3.5" fill="#c9a45c" />
+        </g>
+      );
+      break;
+    case 'road':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M4 30 L24 20 L44 30 L24 40 Z" fill={material === 'stone' ? '#9a948a' : '#8a6e4a'} />
+          <path d="M12 30 L24 24 L36 30 L24 36 Z" fill="none" stroke="rgba(0,0,0,0.35)" strokeDasharray="3 2" />
+        </g>
+      );
+      break;
+    case 'bridge':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <path d="M4 30 Q24 20 44 30 L44 34 Q24 24 4 34 Z" fill={main} />
+          <path d="M8 29 V20 M16 25 V16 M24 23 V14 M32 25 V16 M40 29 V20" stroke={dark} strokeWidth="2" />
+          <path d="M8 20 Q24 10 40 20" fill="none" stroke={dark} strokeWidth="2" />
+          <path d="M4 40 Q24 36 44 40" fill="none" stroke="#4a9ad0" strokeWidth="2" />
+        </g>
+      );
+      break;
+    case 'castle_wall':
+      body = (
+        <g stroke={s} strokeWidth="1.5">
+          <path d="M6 14 H12 V18 H18 V14 H24 V18 H30 V14 H36 V18 H42 V14 H42 V42 H6 Z" fill="#9a948a" />
+          <path d="M6 26 H42 M6 34 H42 M16 18 V26 M28 26 V34 M20 34 V42 M34 18 V26" stroke="rgba(0,0,0,0.3)" />
+        </g>
+      );
+      break;
+    case 'tower':
+      body = (
+        <g stroke={s} strokeWidth="1.5">
+          <rect x="14" y="14" width="20" height="30" fill="#9a948a" />
+          <path d="M11 8 H16 V12 H21 V8 H27 V12 H32 V8 H37 V15 H11 Z" fill="#7d776c" />
+          <path d="M24 2 C27 5 27 7 24 9 C21 7 21 5 24 2 Z" fill="#ff9a3a" />
+          <rect x="21" y="22" width="6" height="8" rx="3" fill="#2a2420" />
+        </g>
+      );
+      break;
+    case 'bookshelf':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <rect x="10" y="6" width="28" height="36" fill={dark} />
+          <rect x="13" y="9" width="4" height="9" fill="#a83a2e" />
+          <rect x="18" y="10" width="4" height="8" fill="#3a5a8a" />
+          <rect x="23" y="9" width="3" height="9" fill="#8a7a3a" />
+          <rect x="13" y="22" width="5" height="9" fill="#3a6a3a" />
+          <rect x="19" y="21" width="4" height="10" fill="#a83a2e" />
+          <rect x="27" y="22" width="6" height="9" fill="#5a3a8a" />
+          <path d="M10 19 H38 M10 32 H38" stroke={main} strokeWidth="2" />
+        </g>
+      );
+      break;
+    case 'rug':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <path d="M4 28 L24 18 L44 28 L24 38 Z" fill="#9a2c2c" />
+          <path d="M12 28 L24 22 L36 28 L24 34 Z" fill="none" stroke="#d9b56e" strokeWidth="1.5" />
+        </g>
+      );
+      break;
+    case 'planter':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <path d="M14 30 H34 L31 42 H17 Z" fill="#6f6a62" />
+          <circle cx="24" cy="20" r="9" fill="#4f8a34" />
+          <circle cx="19" cy="15" r="2.5" fill="#e86a8a" />
+          <circle cx="28" cy="14" r="2.5" fill="#e86a8a" />
+          <circle cx="25" cy="22" r="2.5" fill="#ffd36a" />
+        </g>
+      );
+      break;
+    case 'lantern':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <rect x="17" y="8" width="3" height="34" fill={dark} />
+          <path d="M20 9 H32" stroke="#55504a" strokeWidth="2" />
+          <rect x="27" y="12" width="9" height="11" rx="2" fill="#ffd28a" />
+          <rect x="14" y="40" width="9" height="4" fill="#6f6a62" />
         </g>
       );
       break;

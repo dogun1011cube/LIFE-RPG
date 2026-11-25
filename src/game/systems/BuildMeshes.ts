@@ -41,6 +41,16 @@ function mats() {
       metal: new THREE.MeshStandardMaterial({ color: 0x55504a, roughness: 0.5, metalness: 0.6 }),
       glow: new THREE.MeshStandardMaterial({ color: 0xff8a3a, emissive: 0xff6a1a, emissiveIntensity: 1.5, roughness: 0.6 }),
       glass: new THREE.MeshStandardMaterial({ color: 0xbfe3ff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.35 }),
+      marble: new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTexture('#e9e3d6'), roughness: 0.55 }),
+      marbleTrim: new THREE.MeshStandardMaterial({ color: 0xd9b56e, roughness: 0.35, metalness: 0.6 }),
+      castle: new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTexture('#8f897e', true), roughness: 0.95 }),
+      road: new THREE.MeshStandardMaterial({ color: 0xffffff, map: stoneTexture('#8a847a'), roughness: 1 }),
+      dirt: new THREE.MeshStandardMaterial({ color: 0x8a6e4a, roughness: 1 }),
+      rug: new THREE.MeshStandardMaterial({ color: 0xffffff, map: clothTexture('#8a2a2a'), roughness: 1 }),
+      leaf: new THREE.MeshStandardMaterial({ color: 0x4f8a34, roughness: 0.9, flatShading: true }),
+      flower: new THREE.MeshStandardMaterial({ color: 0xe86a8a, roughness: 0.7 }),
+      lamp: new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffb050, emissiveIntensity: 1.6 }),
+      books: new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: 0.8 }),
     };
   }
   return MATS;
@@ -67,11 +77,17 @@ function boundsOf(parts: { geo: THREE.BufferGeometry }[], extra?: THREE.Box3): T
   return b;
 }
 
+/** Main / trim materials per building material. */
+function matsFor(def: BuildableDef) {
+  const m = mats();
+  if (def.material === 'marble') return { main: m.marble, dark: m.marbleTrim, base: m.marble, trim: true };
+  if (def.material === 'stone') return { main: m.stone, dark: m.stoneDark, base: m.stone, trim: false };
+  return { main: m.wood, dark: m.woodDark, base: m.woodDark, trim: true };
+}
+
 function wallParts(def: BuildableDef, pieces: [number, number, number, number][], trim: boolean) {
   // pieces: [x0, y0, x1, y1] rectangles in wall plane
-  const m = mats();
-  const main = def.material === 'stone' ? m.stone : m.wood;
-  const dark = def.material === 'stone' ? m.stoneDark : m.woodDark;
+  const { main, dark } = matsFor(def);
   const parts: PieceTemplate['parts'] = [];
   const colliders: LocalCollider[] = [];
   for (const [x0, y0, x1, y1] of pieces) {
@@ -90,13 +106,12 @@ function wallParts(def: BuildableDef, pieces: [number, number, number, number][]
 
 function makeTemplate(def: BuildableDef): PieceTemplate {
   const m = mats();
-  const isStone = def.material === 'stone';
-  const main = isStone ? m.stone : m.wood;
-  const dark = isStone ? m.stoneDark : m.woodDark;
+  const isStone = def.material !== 'wood';
+  const { main, dark, base, trim } = matsFor(def);
   switch (def.shape) {
     case 'foundation': {
       const parts = [
-        { geo: bx(-G / 2, -3, -G / 2, G / 2, 0, G / 2), mat: isStone ? m.stone : m.woodDark },
+        { geo: bx(-G / 2, -3, -G / 2, G / 2, 0, G / 2), mat: base },
         { geo: bx(-G / 2 + 0.02, -0.12, -G / 2 + 0.02, G / 2 - 0.02, 0.005, G / 2 - 0.02), mat: main },
       ];
       return { parts, colliders: [col(-G / 2, -3, -G / 2, G / 2, 0, G / 2)], bounds: boundsOf(parts) };
@@ -106,7 +121,7 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
       return { parts, colliders: [col(-G / 2, -BUILD.floorT, -G / 2, G / 2, 0, G / 2)], bounds: boundsOf(parts) };
     }
     case 'wall': {
-      const { parts, colliders } = wallParts(def, [[-G / 2, 0, G / 2, L]], !isStone);
+      const { parts, colliders } = wallParts(def, [[-G / 2, 0, G / 2, L]], trim);
       return { parts, colliders, bounds: boundsOf(parts) };
     }
     case 'doorway': {
@@ -214,7 +229,7 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
     }
     case 'pillar': {
       const parts = [
-        { geo: bx(-0.18, 0, -0.18, 0.18, L, 0.18), mat: isStone ? m.stone : m.woodDark },
+        { geo: bx(-0.18, 0, -0.18, 0.18, L, 0.18), mat: base },
         { geo: bx(-0.24, 0, -0.24, 0.24, 0.2, 0.24), mat: dark },
         { geo: bx(-0.24, L - 0.2, -0.24, 0.24, L, 0.24), mat: dark },
       ];
@@ -313,6 +328,111 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
         ].map(([x, z]) => ({ geo: bx(x - 0.03, 0, z - 0.03, x + 0.03, 0.42, z + 0.03, 1), mat: m.woodDark })),
       ];
       return { parts, colliders: [col(-0.25, 0, -0.25, 0.25, 0.48, 0.25)], bounds: boundsOf(parts) };
+    }
+    case 'road': {
+      // placeholder slab (ghost / hover); placed roads get a terrain-conforming mesh
+      const parts = [{ geo: bx(-G / 2, -0.05, -G / 2, G / 2, 0.06, G / 2), mat: def.material === 'stone' ? m.road : m.dirt }];
+      return { parts, colliders: [], bounds: new THREE.Box3(new THREE.Vector3(-G / 2, -0.2, -G / 2), new THREE.Vector3(G / 2, 0.1, G / 2)) };
+    }
+    case 'bridge': {
+      const len = 6;
+      const parts: PieceTemplate['parts'] = [{ geo: bx(-1, -0.2, -len / 2, 1, 0, len / 2), mat: m.wood }];
+      for (const z of [-len / 2, -len / 6, len / 6, len / 2]) {
+        for (const x of [-0.95, 0.95]) parts.push({ geo: bx(x - 0.07, -0.9, z - 0.07, x + 0.07, 1.0, z + 0.07, 1), mat: m.woodDark });
+      }
+      for (const x of [-0.95, 0.95]) parts.push({ geo: bx(x - 0.05, 0.85, -len / 2, x + 0.05, 0.95, len / 2, 1), mat: m.woodDark });
+      return {
+        parts,
+        colliders: [col(-1, -0.2, -len / 2, 1, 0, len / 2), col(-1.02, 0, -len / 2, -0.88, 1.0, len / 2), col(0.88, 0, -len / 2, 1.02, 1.0, len / 2)],
+        bounds: boundsOf(parts),
+      };
+    }
+    case 'castle_wall': {
+      const H = 5;
+      const th = 1.0;
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-G / 2, 0, -th / 2, G / 2, H, th / 2), mat: m.castle },
+        { geo: bx(-G / 2 - 0.02, H - 0.25, -th / 2 - 0.08, G / 2 + 0.02, H, th / 2 + 0.08), mat: m.stoneDark },
+      ];
+      const colliders: LocalCollider[] = [col(-G / 2, 0, -th / 2, G / 2, H, th / 2)];
+      // merlons on the outer (+z) edge
+      for (const x of [-0.6, 0.6]) {
+        parts.push({ geo: bx(x - 0.3, H, th / 2 - 0.35, x + 0.3, H + 0.7, th / 2), mat: m.castle });
+        colliders.push(col(x - 0.3, H, th / 2 - 0.35, x + 0.3, H + 0.7, th / 2));
+      }
+      return { parts, colliders, bounds: boundsOf(parts) };
+    }
+    case 'tower': {
+      const H = 7.5;
+      const R = 2.1;
+      const body = new THREE.CylinderGeometry(R * 0.95, R, H, 16).translate(0, H / 2, 0);
+      const uv = body.attributes.uv as THREE.BufferAttribute;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6, uv.getY(i) * 3.5);
+      const parts: PieceTemplate['parts'] = [
+        { geo: body, mat: m.castle },
+        { geo: new THREE.CylinderGeometry(R + 0.25, R + 0.25, 0.35, 16).translate(0, H - 0.1, 0), mat: m.stoneDark },
+        { geo: new THREE.CylinderGeometry(0.5, 0.35, 0.6, 10).translate(0, H + 0.3, 0), mat: m.metal },
+      ];
+      const colliders: LocalCollider[] = [col(-R, 0, -R, R, H, R)];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const x = Math.cos(a) * (R + 0.05);
+        const z = Math.sin(a) * (R + 0.05);
+        const g = boxGeo(0.7, 0.75, 0.45, 2);
+        g.rotateY(-a + Math.PI / 2);
+        g.translate(x, H + 0.4, z);
+        parts.push({ geo: g, mat: m.castle });
+        colliders.push(col(x - 0.3, H, z - 0.3, x + 0.3, H + 0.8, z + 0.3));
+      }
+      return { parts, colliders, flame: { pos: [0, H + 0.55, 0], scale: 1.0 }, light: [0, H + 1.5, 0], bounds: boundsOf(parts) };
+    }
+    case 'bookshelf': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-0.8, 0, -0.2, 0.8, 2.0, -0.16, 1), mat: m.woodDark },
+        { geo: bx(-0.8, 0, -0.2, -0.74, 2.0, 0.2, 1), mat: m.woodDark },
+        { geo: bx(0.74, 0, -0.2, 0.8, 2.0, 0.2, 1), mat: m.woodDark },
+      ];
+      for (const y of [0.05, 0.62, 1.22, 1.9]) parts.push({ geo: bx(-0.8, y, -0.2, 0.8, y + 0.06, 0.2, 1), mat: m.wood });
+      const bookColors = [m.books, m.blanket, m.banner, m.books];
+      for (let r = 0; r < 3; r++) {
+        let x = -0.7;
+        for (let k = 0; k < 9 && x < 0.65; k++) {
+          const w = 0.08 + ((k * 7 + r * 3) % 5) * 0.025;
+          const h = 0.38 + ((k * 3 + r) % 4) * 0.04;
+          parts.push({ geo: bx(x, 0.11 + r * 0.6, -0.14, x + w, 0.11 + r * 0.6 + h, 0.12, 1), mat: bookColors[(k + r) % 4] });
+          x += w + 0.015;
+        }
+      }
+      return { parts, colliders: [col(-0.8, 0, -0.2, 0.8, 2.0, 0.2)], bounds: boundsOf(parts) };
+    }
+    case 'rug': {
+      const parts = [
+        { geo: bx(-1.0, 0, -0.65, 1.0, 0.025, 0.65, 2), mat: m.rug },
+        { geo: bx(-1.05, 0, -0.7, 1.05, 0.02, 0.7, 2), mat: m.marbleTrim },
+      ];
+      return { parts, colliders: [], bounds: new THREE.Box3(new THREE.Vector3(-1.05, 0, -0.7), new THREE.Vector3(1.05, 0.1, 0.7)) };
+    }
+    case 'planter': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: new THREE.CylinderGeometry(0.3, 0.22, 0.45, 10).translate(0, 0.22, 0), mat: m.stoneDark },
+        { geo: new THREE.CylinderGeometry(0.27, 0.27, 0.04, 10).translate(0, 0.43, 0), mat: m.dirt },
+        { geo: new THREE.IcosahedronGeometry(0.3, 0).translate(0, 0.7, 0), mat: m.leaf },
+      ];
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        parts.push({ geo: new THREE.SphereGeometry(0.07, 6, 4).translate(Math.cos(a) * 0.2, 0.88 + (i % 2) * 0.06, Math.sin(a) * 0.2), mat: m.flower });
+      }
+      return { parts, colliders: [col(-0.3, 0, -0.3, 0.3, 0.6, 0.3)], bounds: boundsOf(parts) };
+    }
+    case 'lantern': {
+      const parts = [
+        { geo: new THREE.CylinderGeometry(0.06, 0.09, 2.6, 6).translate(0, 1.3, 0), mat: m.woodDark },
+        { geo: bx(-0.25, 0, -0.25, 0.25, 0.2, 0.25, 1), mat: m.stoneDark },
+        { geo: bx(0, 2.45, -0.03, 0.55, 2.52, 0.03, 1), mat: m.metal },
+        { geo: bx(0.38, 1.95, -0.12, 0.62, 2.3, 0.12, 1), mat: m.lamp },
+        { geo: bx(0.35, 2.3, -0.15, 0.65, 2.36, 0.15, 1), mat: m.metal },
+      ];
+      return { parts, colliders: [col(-0.12, 0, -0.12, 0.12, 2.6, 0.12)], light: [0.5, 2.1, 0], bounds: boundsOf(parts) };
     }
     case 'banner': {
       const clothGeo = new THREE.PlaneGeometry(0.9, 1.6, 1, 4);

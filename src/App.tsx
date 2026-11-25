@@ -6,7 +6,7 @@ import { HUD } from './ui/HUD';
 import { MenuShell } from './ui/panels/MenuShell';
 import { PausePanel, SettingsPanel, ControlsPanel, SaveLoadPanel } from './ui/panels/SystemPanels';
 import { ChestPanel } from './ui/panels/ChestPanel';
-import { LorePanel, DeathScreen } from './ui/panels/Overlays';
+import { LorePanel, DeathScreen, BlueprintNamePanel } from './ui/panels/Overlays';
 
 declare global {
   interface Window {
@@ -30,6 +30,7 @@ function UIRoot() {
       {panel === 'chest' && <ChestPanel />}
       {panel === 'lore' && <LorePanel />}
       {panel === 'death' && <DeathScreen />}
+      {panel === 'blueprint' && <BlueprintNamePanel />}
     </>
   );
 }

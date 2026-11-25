@@ -418,3 +418,18 @@ kbd {
 .sc-meta { font-size: 11px; color: #8ac4ff; }
 .sc-req { font-size: 11px; color: #ffb3a8; }
 .sc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Phase 3: building ─────────────────── */
+.build-item.bp { width: 128px; padding: 8px 6px 6px; gap: 4px; position: relative; }
+.bp-name { font-size: 12px; font-weight: 700; text-align: center; margin-top: 6px; }
+.bp-count { font-size: 10px; color: var(--muted); }
+.bp-del { position: absolute; top: 2px; right: 3px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; }
+.bp-del:hover { color: var(--bad); }
+.build-stab { position: fixed; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); font-weight: 700; font-size: 12px; text-shadow: 0 1px 3px #000; }
+.build-stab.ok, .build-hover .ok { color: #9fef8a; }
+.build-stab.mid, .build-hover .mid { color: #ffd24a; }
+.build-stab.bad, .build-hover .bad { color: #ff7a6a; }
+.shelter { font-size: 12px; color: #e6dcc4; background: rgba(0, 0, 0, 0.45); padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line-soft); text-shadow: 0 1px 2px #000; }
+.shelter.warm { border-color: rgba(255, 170, 90, 0.6); color: #ffd7a8; }
+.text-input { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line); color: var(--text); padding: 10px 12px; border-radius: 6px; font-size: 15px; font-family: var(--font); outline: none; }
+.text-input:focus { border-color: var(--gold); }

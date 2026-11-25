@@ -28,6 +28,7 @@ const BUFF_INFO: Record<string, { name: string; icon: string }> = {
   hot: { name: '치유', icon: '✚' },
   slow: { name: '둔화', icon: '❄' },
   riposte: { name: '반격 (다음 공격 치명타)', icon: '⚔' },
+  rested: { name: '휴식 (회복 증가, 경험치 +10%)', icon: '☕' },
 };
 
 function StatusPanel() {
@@ -162,6 +163,11 @@ function Minimap() {
         {game.env.day}일차 · {hh}:{mm}
       </div>
       <div className="region-name">{game.discovery.regionName()}</div>
+      {game.shelter.indoors && (
+        <div className={`shelter ${game.shelter.heat ? 'warm' : ''}`}>
+          🏠 실내{game.shelter.heat ? ' · 불 곁' : ''} · 안락도 {game.shelter.comfort}
+        </div>
+      )}
     </div>
   );
 }
@@ -308,60 +314,112 @@ function BuildBar() {
   const game = useGame();
   const b = game.building;
   const cats = b.categoriesAvailable();
-  const list = b.available(b.category);
   const inv = game.state.player.inventory;
   const pl = b.placement;
   const sel = BUILDABLE_BY_ID[b.selected];
+  const variants = b.blueprintMode ? [] : b.materialVariants();
+  const stab = b.ghostStability;
+  const hoverStab = b.hoverPiece ? (b.stability.get(b.hoverPiece.state.id) ?? 0) : null;
+  const stabCls = (v: number) => (v >= 0.6 ? 'ok' : v >= 0.3 ? 'mid' : 'bad');
   return (
     <div className="build-bar">
       <div className="build-head">
         <span className="build-title">건축 모드</span>
         <div className="build-cats">
           {cats.map((c) => (
-            <button key={c} className={`chip ${c === b.category ? 'on' : ''}`} onClick={() => b.cycleCategory(cats.indexOf(c) - cats.indexOf(b.category))}>
-              {BUILD_CATEGORY_NAME[c]}
+            <button key={c} className={`chip ${c === b.category ? 'on' : ''}`} onClick={() => b.setCategory(c)}>
+              {c === 'blueprint' ? '설계도' : BUILD_CATEGORY_NAME[c]}
             </button>
           ))}
           <span className="hint">[Tab] 분류</span>
         </div>
       </div>
-      <div className="build-items">
-        {list.map((d, i) => {
-          const afford = Inv.hasAll(inv, d.cost);
-          return (
-            <div key={d.id} className={`build-item ${d.id === b.selected ? 'sel' : ''} ${afford ? '' : 'poor'}`} onClick={() => b.select(d.id)} title={d.desc}>
-              <span className="bi-key">{i + 1}</span>
-              <BuildIcon shape={d.shape} material={d.material} size={40} />
-              <div className="bi-name">{d.name}</div>
-              <div className="bi-cost">
-                {d.cost.map((c) => (
-                  <span key={c.item} className={Inv.count(inv, c.item) >= c.qty ? 'ok' : 'no'}>
-                    <ItemIcon id={c.item} size={14} />
-                    {c.qty}
-                  </span>
-                ))}
+      {b.blueprintMode ? (
+        <div className="build-items">
+          {b.blueprints.map((bp, i) => {
+            const cost = b.blueprintCostOf(bp);
+            const afford = Inv.hasAll(inv, cost);
+            return (
+              <div key={bp.id} className={`build-item bp ${bp.id === b.selectedBlueprint ? 'sel' : ''} ${afford ? '' : 'poor'}`} onClick={() => b.selectBlueprint(bp.id)}>
+                <span className="bi-key">{i + 1}</span>
+                <div className="bp-name">{bp.name}</div>
+                <div className="bp-count">{bp.pieces.length}개 조각</div>
+                <div className="bi-cost">
+                  {cost.slice(0, 4).map((c) => (
+                    <span key={c.item} className={Inv.count(inv, c.item) >= c.qty ? 'ok' : 'no'}>
+                      <ItemIcon id={c.item} size={14} />
+                      {c.qty}
+                    </span>
+                  ))}
+                </div>
+                {!bp.builtin && (
+                  <button
+                    className="bp-del"
+                    title="설계도 삭제"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      b.removeBlueprint(bp.id);
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="build-items">
+          {b.available(b.category).map((d, i) => {
+            const afford = Inv.hasAll(inv, d.cost);
+            return (
+              <div key={d.id} className={`build-item ${d.id === b.selected ? 'sel' : ''} ${afford ? '' : 'poor'}`} onClick={() => b.select(d.id)} title={d.desc}>
+                <span className="bi-key">{i + 1}</span>
+                <BuildIcon shape={d.shape} material={d.material} size={40} />
+                <div className="bi-name">{d.name}</div>
+                <div className="bi-cost">
+                  {d.cost.map((c) => (
+                    <span key={c.item} className={Inv.count(inv, c.item) >= c.qty ? 'ok' : 'no'}>
+                      <ItemIcon id={c.item} size={14} />
+                      {c.qty}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="build-hints">
         <span>
           <kbd>좌클릭</kbd> 설치
         </span>
         <span>
-          <kbd>R</kbd> {sel?.snap === 'edge' ? '뒤집기' : '회전'}
+          <kbd>R</kbd> {b.blueprintMode ? '회전' : sel?.snap === 'edge' ? '뒤집기' : '회전'}
+        </span>
+        {!b.blueprintMode && (
+          <span>
+            <kbd>휠</kbd> 높이 {b.heightOffset !== 0 ? `(${b.heightOffset > 0 ? '+' : ''}${b.heightOffset.toFixed(2)}m)` : ''}
+          </span>
+        )}
+        {variants.length > 1 && (
+          <span>
+            <kbd>Q</kbd> 재료 ({variants.map((v) => ({ wood: '나무', stone: '돌', marble: '대리석' })[v.material]).join('·')})
+          </span>
+        )}
+        <span>
+          <kbd>X</kbd> 철거
         </span>
         <span>
-          <kbd>휠</kbd> 높이 {b.heightOffset !== 0 ? `(${b.heightOffset > 0 ? '+' : ''}${b.heightOffset.toFixed(2)}m)` : ''}
-        </span>
-        <span>
-          <kbd>X</kbd>/<kbd>우클릭</kbd> 철거
+          <kbd>Z</kbd> 옮기기
         </span>
         <span>
           <kbd>F</kbd> 복사
         </span>
-        {sel?.snap === 'free' && (
+        <span>
+          <kbd>P</kbd> 설계도 저장
+        </span>
+        {sel?.snap === 'free' && !b.blueprintMode && (
           <span>
             <kbd>G</kbd> 격자 {b.gridSnap ? '켬' : '끔'}
           </span>
@@ -370,8 +428,15 @@ function BuildBar() {
           <kbd>B</kbd> 종료
         </span>
       </div>
-      {pl && !pl.valid && <div className="build-reason">{pl.reason}</div>}
-      {b.hoverPiece && <div className="build-hover">대상: {b.hoverPiece.def.name}</div>}
+      {!b.blueprintMode && pl && pl.valid && <div className={`build-stab ${stabCls(stab)}`}>안정도 {Math.round(stab * 100)}%</div>}
+      {!b.blueprintMode && pl && !pl.valid && <div className="build-reason">{pl.reason}</div>}
+      {b.blueprintMode && b.bpPlacement && !b.bpPlacement.valid && <div className="build-reason">{b.bpPlacement.reason}</div>}
+      {b.blueprintMode && b.blueprints.length === 0 && <div className="build-reason">저장된 설계도가 없습니다</div>}
+      {b.hoverPiece && (
+        <div className="build-hover">
+          대상: {b.hoverPiece.def.name} · <span className={stabCls(hoverStab ?? 0)}>안정도 {Math.round((hoverStab ?? 0) * 100)}%</span>
+        </div>
+      )}
     </div>
   );
 }

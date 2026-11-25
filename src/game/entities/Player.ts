@@ -314,6 +314,8 @@ export class Player {
       }
       speed = (this.swimming ? PLAYER.swimSpeed : this.running ? PLAYER.runSpeed : PLAYER.walkSpeed) * st.moveMult;
       if (game.building.active) speed *= 0.85;
+      // roads make travel faster
+      if (this.body.grounded && !game.inDungeon && game.building.isRoadAt(this.body.pos.x, this.body.pos.z)) speed *= 1.3;
       if (this.action === 'attack') speed *= 0.3;
       else if (this.action === 'heavy') speed *= 0.12;
       else if (this.action === 'gather' || this.action === 'pick') speed = 0;

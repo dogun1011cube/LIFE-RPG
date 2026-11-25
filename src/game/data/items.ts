@@ -61,6 +61,7 @@ const list: ItemDef[] = [
   { id: 'leather', name: '무두질한 가죽', desc: '부드럽게 손질된 가죽. 방어구와 손잡이에 쓰인다.', category: 'material', rarity: 'uncommon', stack: 50, icon: { shape: 'leather', c1: '#9b6236', c2: '#d29a62' }, value: 10 },
   { id: 'crystal', name: '공명 수정', desc: '은은하게 진동하는 푸른 수정. 고대 문명의 힘이 깃들어 있다.', category: 'material', rarity: 'rare', stack: 50, icon: { shape: 'crystal', c1: '#3fc6e8', c2: '#c9f6ff' }, value: 30 },
   { id: 'gloom_essence', name: '어둠의 정수', desc: '밤의 도깨비불이 남긴 차가운 정수.', category: 'material', rarity: 'rare', stack: 50, icon: { shape: 'essence', c1: '#7b4ad9', c2: '#d2b8ff' }, value: 25 },
+  { id: 'stone_brick', name: '석재 벽돌', desc: '반듯하게 다듬은 돌 벽돌. 대리석 건축물과 성벽의 재료.', category: 'material', rarity: 'uncommon', stack: 99, icon: { shape: 'brick', c1: '#d8d0c0', c2: '#9a9284' }, value: 4 },
   { id: 'bone', name: '뼈', desc: '묘소의 해골들이 남긴 오래된 뼈. 부적의 재료가 된다.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'bone', c1: '#e8e2d0', c2: '#b8ae94' }, value: 3 },
   { id: 'ancient_fragment', name: '고대 파편', desc: '알 수 없는 문양이 새겨진 석판 조각. 에테르눔 문명의 흔적.', category: 'material', rarity: 'rare', stack: 20, icon: { shape: 'fragment', c1: '#b9a77a', c2: '#5fe0d8' }, value: 40 },
 

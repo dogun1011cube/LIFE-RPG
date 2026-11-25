@@ -53,6 +53,7 @@ export function derivePlayerStats(p: PlayerState): DerivedStats {
   const int = at.int ?? 0;
   const wellFed = p.buffs.some((b) => b.id === 'well_fed');
   const slowed = p.buffs.some((b) => b.id === 'slow');
+  const rested = p.buffs.some((b) => b.id === 'rested');
   const baseHp = 100 + (p.level - 1) * 10 + at.vit * 12 + (t?.hp ?? 0);
   const attackPct = 1 + rank(p, 'c_fury') * 0.06 + (t?.attackPct ?? 0);
   return {
@@ -63,8 +64,8 @@ export function derivePlayerStats(p: PlayerState): DerivedStats {
     critChance: 0.05 + at.agi * 0.012 + (t?.crit ?? 0),
     critMult: 1.75,
     moveMult: (1 + at.agi * 0.01 + rank(p, 's_runner') * 0.04) * (slowed ? 0.6 : 1),
-    staminaRegen: 28 * (1 + at.end * 0.04) * (wellFed ? 1.25 : 1),
-    hpRegen: wellFed ? 2.5 : 0.8,
+    staminaRegen: 28 * (1 + at.end * 0.04) * (wellFed ? 1.25 : 1) * (rested ? 1.3 : 1),
+    hpRegen: (wellFed ? 2.5 : 0.8) + (rested ? 1.5 : 0),
     gatherSpeed: 1 + at.skl * 0.04 + rank(p, 's_gather') * 0.15,
     bonusYield: at.skl * 0.04 + rank(p, 's_gather') * 0.08,
     weaponReach: w?.reach ?? 2.0,
