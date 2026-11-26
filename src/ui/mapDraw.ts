@@ -125,6 +125,42 @@ export function drawWorldMap(ctx: CanvasRenderingContext2D, game: Game, cx: numb
     ctx.fill();
   }
 
+  // Settlement: town hall marker and villagers
+  const hall = game.settlement?.hall();
+  if (hall) {
+    const x = toX(hall.state.x);
+    const y = toY(hall.state.z);
+    ctx.strokeStyle = 'rgba(127, 211, 106, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, (45 / span) * W, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#7fd36a';
+    ctx.strokeStyle = '#1a140a';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 7 * s);
+    ctx.lineTo(x + 6 * s, y);
+    ctx.lineTo(x + 6 * s, y + 6 * s);
+    ctx.lineTo(x - 6 * s, y + 6 * s);
+    ctx.lineTo(x - 6 * s, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (opts.labels) {
+      ctx.fillStyle = '#d8f5c8';
+      ctx.fillText(game.state.settlement.name, x, y - 10 * s);
+    }
+  }
+  ctx.fillStyle = '#9fef8a';
+  for (const v of game.state.settlement?.villagers ?? []) {
+    const x = toX(v.x);
+    const y = toY(v.z);
+    if (x < 0 || y < 0 || x > W || y > H) continue;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.2 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // Enemies
   if (opts.enemies) {
     for (const e of game.enemies.list) {

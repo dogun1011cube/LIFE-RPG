@@ -3,7 +3,15 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { ITEMS } from '../data/items';
 import { damp } from '../core/math';
 
-export type AnimState = 'idle' | 'move' | 'air' | 'swim' | 'attack' | 'heavy' | 'gather' | 'pick' | 'dodge' | 'hurt' | 'dead' | 'use' | 'block' | 'spin' | 'dash' | 'cast';
+export type AnimState = 'idle' | 'move' | 'air' | 'swim' | 'attack' | 'heavy' | 'gather' | 'pick' | 'dodge' | 'hurt' | 'dead' | 'use' | 'block' | 'spin' | 'dash' | 'cast' | 'sleep';
+
+export interface CharacterLook {
+  shirt?: number;
+  pants?: number;
+  hair?: number;
+  skin?: number;
+  cape?: boolean;
+}
 
 export interface AnimInput {
   state: AnimState;
@@ -43,13 +51,18 @@ export class CharacterModel {
   private walkPhase = 0;
   private time = 0;
   private toolKind: 'axe' | 'pickaxe' | null = null;
+  private baseShirt = 0x3f6a8a;
   private toolColor = 0x9a9a95;
 
-  constructor() {
-    const skin = std(0xe8b896, 0.7);
-    const pants = std(0x4a3a2c, 0.9);
+  constructor(look: CharacterLook = {}) {
+    const skin = std(look.skin ?? 0xe8b896, 0.7);
+    const pants = std(look.pants ?? 0x4a3a2c, 0.9);
     const boots = std(0x2e2218, 0.85);
-    const hair = std(0x3b2516, 0.9);
+    const hair = std(look.hair ?? 0x3b2516, 0.9);
+    if (look.shirt !== undefined) {
+      this.baseShirt = look.shirt;
+      this.chestMat.color.setHex(look.shirt);
+    }
     const belt = std(0x2a1d12, 0.7);
     const capeMat = std(0x6e2226, 0.95, { side: THREE.DoubleSide });
 
@@ -156,6 +169,7 @@ export class CharacterModel {
     this.cape = new THREE.Mesh(capeGeo, capeMat);
     this.cape.position.set(0, 0.62, -0.15);
     this.torso.add(this.cape);
+    this.cape.visible = look.cape ?? true;
 
     this.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {
@@ -195,10 +209,15 @@ export class CharacterModel {
     this.weapon.traverse((o) => ((o as THREE.Mesh).isMesh ? (o.castShadow = true) : null));
 
     const a = armorId ? ITEMS[armorId]?.armor : undefined;
-    this.chestMat.color.setHex(a ? a.color : 0x3f6a8a);
+    this.chestMat.color.setHex(a ? a.color : this.baseShirt);
     this.chestMat.metalness = armorId === 'copper_armor' ? 0.45 : 0;
     this.chestMat.roughness = armorId === 'copper_armor' ? 0.45 : 0.85;
     this.padL.visible = this.padR.visible = !!a;
+  }
+
+  setShirt(color: number) {
+    this.baseShirt = color;
+    this.chestMat.color.setHex(color);
   }
 
   private buildTool(kind: 'axe' | 'pickaxe', color: number) {
@@ -460,6 +479,7 @@ export class CharacterModel {
         capeX = 0.4 + up * 0.4;
         break;
       }
+      case 'sleep':
       case 'dead':
         bodyPitch = -Math.PI / 2;
         bodyY = 0.25;
@@ -487,7 +507,7 @@ export class CharacterModel {
     // whirlwind spins the whole upper/lower body around Y
     this.hips.rotation.y = a.state === 'spin' ? ease(Math.min(1, a.t)) * Math.PI * 2 : 0;
     if (a.state === 'dodge') this.body.rotation.x = bodyRoll;
-    else if (a.state === 'dead' || a.state === 'swim') this.body.rotation.x = lerpTo(this.body.rotation.x, bodyPitch, damp(6, dt));
+    else if (a.state === 'dead' || a.state === 'sleep' || a.state === 'swim') this.body.rotation.x = lerpTo(this.body.rotation.x, bodyPitch, damp(6, dt));
     else this.body.rotation.x = lerpTo(this.body.rotation.x % (Math.PI * 2), 0, damp(14, dt));
 
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 4);

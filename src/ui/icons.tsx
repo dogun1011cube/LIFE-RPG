@@ -188,6 +188,34 @@ function shapeSvg(shape: string, c1: string, c2: string): ReactElement {
           <circle cx="34" cy="30" r="4" fill={c2} />
         </g>
       );
+    case 'wheat':
+      return (
+        <g stroke={stroke} strokeWidth="1.2">
+          <path d="M24 44 V14 M18 44 C18 30 16 24 12 16 M30 44 C30 30 32 24 36 16" fill="none" stroke={c2} strokeWidth="2" />
+          {[10, 16, 22].map((y) => (
+            <g key={y}>
+              <ellipse cx="20.5" cy={y} rx="3" ry="4.5" fill={c1} transform={`rotate(-25 20.5 ${y})`} />
+              <ellipse cx="27.5" cy={y} rx="3" ry="4.5" fill={c1} transform={`rotate(25 27.5 ${y})`} />
+            </g>
+          ))}
+          <ellipse cx="24" cy="6" rx="2.6" ry="4" fill={c1} />
+        </g>
+      );
+    case 'coin':
+      return (
+        <g stroke={stroke} strokeWidth="1.5">
+          <circle cx="24" cy="24" r="15" fill={c1} />
+          <circle cx="24" cy="24" r="10.5" fill="none" stroke={c2} strokeWidth="2" />
+          <path d="M24 16 L27 24 L24 32 L21 24 Z" fill={c2} stroke="none" />
+        </g>
+      );
+    case 'bread':
+      return (
+        <g stroke={stroke} strokeWidth="1.5">
+          <path d="M6 30 C6 16 42 16 42 30 C42 36 6 36 6 30 Z" fill={c1} />
+          <path d="M16 21 L20 27 M23 19 L27 26 M30 20 L33 26" stroke={c2} strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+      );
     case 'brick':
       return (
         <g stroke={stroke} strokeWidth="1.3">
@@ -514,6 +542,82 @@ export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; m
           <path d="M20 9 H32" stroke="#55504a" strokeWidth="2" />
           <rect x="27" y="12" width="9" height="11" rx="2" fill="#ffd28a" />
           <rect x="14" y="40" width="9" height="4" fill="#6f6a62" />
+        </g>
+      );
+      break;
+    case 'town_hall':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <rect x="7" y="22" width="34" height="20" fill={main} />
+          <path d="M4 24 L24 12 L44 24 Z" fill="#9a4a2e" />
+          <rect x="20" y="5" width="8" height="9" fill={main} />
+          <path d="M18 6 L24 1 L30 6 Z" fill="#9a4a2e" />
+          <rect x="20" y="30" width="8" height="12" fill={dark} />
+          <circle cx="24" cy="10" r="2" fill="#c9a45c" />
+        </g>
+      );
+      break;
+    case 'warehouse':
+      body = (
+        <g stroke={s} strokeWidth="1.3">
+          <rect x="6" y="18" width="30" height="24" fill={main} />
+          <rect x="4" y="15" width="34" height="4" fill="#9a4a2e" />
+          <rect x="15" y="26" width="12" height="16" fill={dark} />
+          <rect x="37" y="32" width="8" height="10" fill={main} />
+        </g>
+      );
+      break;
+    case 'farm_plot':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M4 32 L24 22 L44 32 L24 42 Z" fill="#5a3e26" />
+          <path d="M12 28 V20 M18 31 V23 M24 34 V26 M30 31 V23 M36 28 V20" stroke="#8aa64a" strokeWidth="2.2" />
+          <path d="M12 20 l-2 -3 M18 23 l2 -3 M24 26 l-2 -3 M30 23 l2 -3 M36 20 l-2 -3" stroke="#e3c25a" strokeWidth="2" />
+        </g>
+      );
+      break;
+    case 'lumber_camp':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <circle cx="14" cy="36" r="5" fill="#8a5a32" />
+          <circle cx="24" cy="36" r="5" fill="#8a5a32" />
+          <circle cx="19" cy="28" r="5" fill="#8a5a32" />
+          <path d="M32 40 L40 18" stroke="#6a4426" strokeWidth="3" />
+          <path d="M36 16 C40 12 46 14 44 20 L38 22 Z" fill="#a3a39e" />
+        </g>
+      );
+      break;
+    case 'mine_shaft':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M4 40 L14 14 L34 12 L44 40 Z" fill="#7d776c" />
+          <path d="M16 40 V24 H32 V40" fill="#151210" stroke="#6a4426" strokeWidth="3" />
+          <path d="M14 23 H34" stroke="#6a4426" strokeWidth="3.5" />
+        </g>
+      );
+      break;
+    case 'market_stall':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M6 18 L42 18 L38 10 L10 10 Z" fill="#b8402e" />
+          <path d="M14 10 L12 18 M22 10 L22 18 M30 10 L32 18" stroke="#e8dcc0" strokeWidth="3" />
+          <rect x="9" y="18" width="2.5" height="24" fill={dark} />
+          <rect x="36.5" y="18" width="2.5" height="24" fill={dark} />
+          <rect x="10" y="30" width="28" height="7" fill={main} />
+          <circle cx="18" cy="28" r="2.5" fill="#e0642a" />
+          <circle cx="24" cy="28" r="2.5" fill="#e0642a" />
+        </g>
+      );
+      break;
+    case 'well':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M10 6 L24 0 L38 6 Z" fill="#9a4a2e" />
+          <rect x="12" y="6" width="2.5" height="22" fill="#6a4426" />
+          <rect x="33.5" y="6" width="2.5" height="22" fill="#6a4426" />
+          <ellipse cx="24" cy="30" rx="14" ry="5" fill="#7d776c" />
+          <rect x="10" y="30" width="28" height="12" fill="#9a948a" />
+          <ellipse cx="24" cy="30" rx="10" ry="3" fill="#2a5a7a" />
         </g>
       );
       break;

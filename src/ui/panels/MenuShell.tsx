@@ -13,6 +13,7 @@ import type { Slot } from '../../game/state/types';
 import { SKILLS, TREE_INFO, SKILL_KEY_LABELS, type SkillTree } from '../../game/data/skills';
 import { rank } from '../../game/systems/Stats';
 import { DUNGEON_ORIGIN } from '../../game/world/Dungeon';
+import { JOBS, JOB_ORDER, TIERS, MARKET_STOCK, FOOD_VALUE, type JobId } from '../../game/data/village';
 
 const TABS: { id: MenuTab; name: string; key: string }[] = [
   { id: 'inventory', name: '인벤토리', key: 'Tab' },
@@ -20,6 +21,7 @@ const TABS: { id: MenuTab; name: string; key: string }[] = [
   { id: 'crafting', name: '제작', key: 'C' },
   { id: 'quests', name: '퀘스트', key: 'J' },
   { id: 'map', name: '지도', key: 'M' },
+  { id: 'village', name: '마을', key: 'H' },
 ];
 
 export function MenuShell() {
@@ -47,6 +49,7 @@ export function MenuShell() {
           {tab === 'crafting' && <CraftingTab />}
           {tab === 'quests' && <QuestsTab />}
           {tab === 'map' && <MapTab />}
+          {tab === 'village' && <VillageTab />}
         </div>
       </div>
     </div>
@@ -614,3 +617,209 @@ function SkillsTab() {
   );
 }
 
+
+function moodIcon(h: number) {
+  return h >= 70 ? '😊' : h >= 40 ? '🙂' : h >= 20 ? '😟' : '😢';
+}
+
+function VillageTab() {
+  const game = useGame();
+  const S = game.settlement;
+  const st = game.state.settlement;
+  const inv = game.state.player.inventory;
+  if (!st.founded) {
+    const known = game.state.knownBuildables.includes('town_hall');
+    return (
+      <div className="village-empty">
+        <div className="qd-title">정착지가 아직 없습니다</div>
+        <p className="qd-desc">
+          {known
+            ? '[B] 건축 모드의 "마을" 분류에서 마을 회관을 지으면 정착지가 세워집니다. 회관 반경 45m 안에 침대를 놓으면 주민이 찾아옵니다.'
+            : '먼저 메인 퀘스트 "나만의 보금자리"를 완료해 집을 지으면 마을 회관을 지을 수 있게 됩니다.'}
+        </p>
+        <div className="req-title">성장 단계</div>
+        {TIERS.map((t) => (
+          <div key={t.level} className="tier-row">
+            <b>{t.name}</b> <span className="muted small">수용 {t.capacity}명 · {t.requirement}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const cap = S.capacity();
+  const beds = S.beds().length;
+  const food = S.foodStock();
+  const avg = S.averageHappiness();
+  const used = S.warehouseUsed();
+  const wcap = S.warehouseCapacity();
+  const market = S.marketOpen();
+  const hasStall = S.workplaces('merchant').length > 0;
+  const items = Object.entries(st.warehouse).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="village-layout">
+      <div className="village-head">
+        <div>
+          <div className="qd-title">{st.name}</div>
+          <div className="muted small">
+            {S.tierName()} · 주민 {st.villagers.length}/{cap} (침대 {beds}) · 은화 {S.coins()}
+          </div>
+        </div>
+        <div className="vstat">
+          <span>행복도</span>
+          <div className="obj-bar wide">
+            <div style={{ width: `${avg}%`, background: avg >= 60 ? '#7fd36a' : avg >= 30 ? '#e9c46a' : '#ff6a5a' }} />
+          </div>
+          <b>{Math.round(avg)}</b>
+        </div>
+        <div className="vstat">
+          <span>식량</span>
+          <b className={food < st.villagers.length ? 'bad' : ''}>
+            {food.toFixed(1)} ({st.villagers.length ? `${(food / st.villagers.length).toFixed(1)}일분` : '-'})
+          </b>
+        </div>
+        <div className="vbtns">
+          <button className="btn small" onClick={() => S.autoAssign()}>
+            자동 배정
+          </button>
+          {!st.charter && Inv.count(inv, 'settlement_charter') > 0 && (
+            <button className="btn small primary" onClick={() => S.useCharter()}>
+              정착 헌장 사용
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="village-cols">
+        <div className="vcol">
+          <div className="list-head">주민</div>
+          {st.villagers.length === 0 && <p className="muted small">아직 주민이 없습니다. 빈 침대와 창고의 음식이 있으면 여행자가 찾아옵니다.</p>}
+          {st.villagers.map((v) => (
+            <div key={v.id} className="villager-row">
+              <span className="vmood" title={`행복도 ${Math.round(v.happiness)}`}>
+                {moodIcon(v.happiness)}
+              </span>
+              <div className="vinfo">
+                <b>{v.name}</b>
+                <small>
+                  {game.villagers.activityOf(v.id)}
+                  {v.homeId === null ? ' · 집 없음' : ''}
+                  {!v.fed ? ' · 굶주림' : ''}
+                </small>
+              </div>
+              <select
+                className="job-select"
+                value={v.job ?? ''}
+                onChange={(e) => S.assignJob(v.id, (e.target.value || null) as JobId | null)}
+              >
+                <option value="">무직</option>
+                {JOB_ORDER.map((j) => (
+                  <option key={j} value={j} disabled={v.job !== j && S.freeWorkplaces(j).length === 0}>
+                    {JOBS[j].name} ({S.freeWorkplaces(j).length}/{S.workplaces(j).length})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+          <div className="list-head">일터</div>
+          {JOB_ORDER.map((j) => (
+            <div key={j} className="job-row">
+              <span>{JOBS[j].name}</span>
+              <small className="muted">{JOBS[j].desc}</small>
+              <b>
+                {S.workplaces(j).length - S.freeWorkplaces(j).length}/{S.workplaces(j).length}
+              </b>
+            </div>
+          ))}
+        </div>
+        <div className="vcol">
+          <div className="grid-head">
+            <span>
+              창고 {used}/{wcap}
+            </span>
+            <button className="btn small" onClick={() => S.depositFood()}>
+              음식 맡기기
+            </button>
+          </div>
+          <div className="wh-grid">
+            {items.length === 0 && <p className="muted small">비어 있습니다.</p>}
+            {items.map(([id, n]) => (
+              <div key={id} className="wh-item" title={`클릭: ${ITEMS[id]?.name ?? id} 꺼내기`} onClick={() => S.withdraw(id)}>
+                <ItemIcon id={id} size={30} />
+                <span>{n}</span>
+                {FOOD_VALUE[id] !== undefined && <i className="food-dot" />}
+              </div>
+            ))}
+          </div>
+          <div className="muted small tip">클릭하면 꺼냅니다 · 아래 소지품을 클릭하면 맡깁니다</div>
+          <div className="slot-grid mini">
+            {inv.map((s, i) => (
+              <div key={i} className={`slot filled tiny-slot`} onClick={() => S.depositSlot(i)} title={s ? ITEMS[s.id].name : ''}>
+                {s && <ItemIcon id={s.id} size={24} />}
+                {s && s.qty > 1 && <span className="qty">{s.qty}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="vcol">
+          <div className="list-head">시장 {market ? '· 영업 중' : ''}</div>
+          {!hasStall && <p className="muted small">"마을" 단계가 되면 시장 가판대를 지을 수 있습니다. 상인을 배정하면 거래가 열립니다.</p>}
+          {hasStall && !market && <p className="muted small">시장 가판대에 상인을 배정하면 거래할 수 있습니다.</p>}
+          {market && (
+            <>
+              <div className="req-title">사기 (은화 {S.coins()})</div>
+              {MARKET_STOCK.map((m) => (
+                <div key={m.item} className="trade-row">
+                  <ItemIcon id={m.item} size={22} />
+                  <span>{ITEMS[m.item].name}</span>
+                  <button className="btn tiny" onClick={() => S.buy(m.item)}>
+                    {S.buyPrice(m.item)} 은화
+                  </button>
+                </div>
+              ))}
+              <div className="req-title">팔기 (클릭: 1개 · 우클릭: 전부)</div>
+              <div className="slot-grid mini">
+                {inv.map((s, i) => (
+                  <div
+                    key={i}
+                    className="slot filled tiny-slot"
+                    title={s ? `${ITEMS[s.id].name} · ${S.sellPrice(s.id)} 은화` : ''}
+                    onClick={() => S.sell(i, false)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      S.sell(i, true);
+                    }}
+                  >
+                    {s && <ItemIcon id={s.id} size={24} />}
+                    {s && s.qty > 1 && <span className="qty">{s.qty}</span>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <div className="list-head">성장 단계</div>
+          {TIERS.map((t) => (
+            <div key={t.level} className={`tier-row ${st.tier >= t.level ? 'done' : ''}`}>
+              <b>
+                {st.tier >= t.level ? '✓ ' : ''}
+                {t.name}
+              </b>
+              <span className="muted small">
+                수용 {t.capacity}명 · {t.requirement}
+              </span>
+            </div>
+          ))}
+          <div className="list-head">마을 소식</div>
+          <div className="vlog">
+            {st.log
+              .slice(-8)
+              .reverse()
+              .map((l, i) => (
+                <div key={i}>
+                  <span className="muted small">{l.day}일차</span> {l.text}
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

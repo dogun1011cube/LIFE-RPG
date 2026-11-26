@@ -61,6 +61,8 @@ const list: ItemDef[] = [
   { id: 'leather', name: '무두질한 가죽', desc: '부드럽게 손질된 가죽. 방어구와 손잡이에 쓰인다.', category: 'material', rarity: 'uncommon', stack: 50, icon: { shape: 'leather', c1: '#9b6236', c2: '#d29a62' }, value: 10 },
   { id: 'crystal', name: '공명 수정', desc: '은은하게 진동하는 푸른 수정. 고대 문명의 힘이 깃들어 있다.', category: 'material', rarity: 'rare', stack: 50, icon: { shape: 'crystal', c1: '#3fc6e8', c2: '#c9f6ff' }, value: 30 },
   { id: 'gloom_essence', name: '어둠의 정수', desc: '밤의 도깨비불이 남긴 차가운 정수.', category: 'material', rarity: 'rare', stack: 50, icon: { shape: 'essence', c1: '#7b4ad9', c2: '#d2b8ff' }, value: 25 },
+  { id: 'wheat', name: '밀', desc: '밭에서 거둔 밀. 요리사가 빵으로 만든다. 주민의 비상식량이 되기도 한다.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'wheat', c1: '#e3c25a', c2: '#a8862a' }, value: 1 },
+  { id: 'coin', name: '은화', desc: '마을 시장에서 쓰이는 화폐.', category: 'special', rarity: 'uncommon', stack: 999, icon: { shape: 'coin', c1: '#d8dde4', c2: '#8a929c' }, value: 1 },
   { id: 'stone_brick', name: '석재 벽돌', desc: '반듯하게 다듬은 돌 벽돌. 대리석 건축물과 성벽의 재료.', category: 'material', rarity: 'uncommon', stack: 99, icon: { shape: 'brick', c1: '#d8d0c0', c2: '#9a9284' }, value: 4 },
   { id: 'bone', name: '뼈', desc: '묘소의 해골들이 남긴 오래된 뼈. 부적의 재료가 된다.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'bone', c1: '#e8e2d0', c2: '#b8ae94' }, value: 3 },
   { id: 'ancient_fragment', name: '고대 파편', desc: '알 수 없는 문양이 새겨진 석판 조각. 에테르눔 문명의 흔적.', category: 'material', rarity: 'rare', stack: 20, icon: { shape: 'fragment', c1: '#b9a77a', c2: '#5fe0d8' }, value: 40 },
@@ -70,6 +72,7 @@ const list: ItemDef[] = [
   { id: 'raw_meat', name: '날고기', desc: '모닥불에 구우면 훌륭한 음식이 된다. 날로 먹으면 회복량이 적다.', category: 'consumable', rarity: 'common', stack: 30, icon: { shape: 'meat', c1: '#d96a6a', c2: '#f3e0d0' }, value: 2, use: { heal: 4 } },
   { id: 'cooked_meat', name: '구운 고기', desc: '든든한 한 끼. 체력을 회복하고 잠시 배부름 효과를 얻는다.', category: 'consumable', rarity: 'uncommon', stack: 30, icon: { shape: 'meat', c1: '#9a5a2a', c2: '#f3e0d0' }, value: 6, use: { heal: 30, buff: 'well_fed' } },
   { id: 'healing_salve', name: '치유 연고', desc: '산딸기와 섬유로 만든 연고. 8초에 걸쳐 체력을 회복한다.', category: 'consumable', rarity: 'common', stack: 20, icon: { shape: 'salve', c1: '#7fbf5a', c2: '#e9e2c9' }, value: 5, use: { hot: { amount: 45, duration: 8 } } },
+  { id: 'bread', name: '빵', desc: '갓 구운 빵. 체력을 회복하고 배부름 효과를 준다. 주민들의 주식.', category: 'consumable', rarity: 'common', stack: 30, icon: { shape: 'bread', c1: '#c98a3a', c2: '#f3d79a' }, value: 4, use: { heal: 25, buff: 'well_fed' } },
   { id: 'mana_potion', name: '마나 물약', desc: '어둠의 정수를 정화해 만든 푸른 물약. 마나를 즉시 회복한다.', category: 'consumable', rarity: 'uncommon', stack: 20, icon: { shape: 'potion', c1: '#3a7cff', c2: '#cfe0ff' }, value: 15, use: { mana: 60 } },
   { id: 'health_potion', name: '회복 물약', desc: '슬라임 젤로 만든 붉은 물약. 즉시 체력을 크게 회복한다.', category: 'consumable', rarity: 'uncommon', stack: 20, icon: { shape: 'potion', c1: '#e0354b', c2: '#ffd1d8' }, value: 15, use: { heal: 70 } },
 

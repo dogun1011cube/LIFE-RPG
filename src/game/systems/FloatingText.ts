@@ -23,6 +23,7 @@ export class FloatingText {
   readonly root: HTMLDivElement;
   private items: FT[] = [];
   private plates: Plate[] = [];
+  private tags: { el: HTMLDivElement; used: boolean }[] = [];
   private v = new THREE.Vector3();
 
   constructor(container: HTMLElement) {
@@ -85,6 +86,35 @@ export class FloatingText {
     for (const p of this.plates) if (!p.used) p.el.style.display = 'none';
   }
 
+  /** Simple name labels (villagers). Call beginTags/endTags around a frame. */
+  beginTags() {
+    for (const t of this.tags) t.used = false;
+  }
+
+  tag(camera: THREE.Camera, pos: THREE.Vector3, text: string, sub: string) {
+    this.v.copy(pos).project(camera);
+    if (this.v.z > 1 || this.v.z < -1) return;
+    let t = this.tags.find((x) => !x.used);
+    if (!t) {
+      const el = document.createElement('div');
+      el.className = 'vtag';
+      this.root.appendChild(el);
+      t = { el, used: false };
+      this.tags.push(t);
+    }
+    t.used = true;
+    const x = (this.v.x * 0.5 + 0.5) * this.root.clientWidth;
+    const y = (-this.v.y * 0.5 + 0.5) * this.root.clientHeight;
+    t.el.style.display = 'block';
+    t.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+    const html = `${text}<small>${sub}</small>`;
+    if (t.el.innerHTML !== html) t.el.innerHTML = html;
+  }
+
+  endTags() {
+    for (const t of this.tags) if (!t.used) t.el.style.display = 'none';
+  }
+
   update(dt: number, camera: THREE.Camera) {
     const w = this.root.clientWidth;
     const h = this.root.clientHeight;
@@ -117,5 +147,6 @@ export class FloatingText {
     for (const it of this.items) it.el.remove();
     this.items = [];
     for (const p of this.plates) p.el.style.display = 'none';
+    for (const t of this.tags) t.el.style.display = 'none';
   }
 }

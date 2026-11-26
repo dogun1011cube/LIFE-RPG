@@ -6,7 +6,8 @@ import type { StationId } from '../data/recipes';
 import type { PieceState } from '../state/types';
 import type { Collider, BoxCollider } from '../world/Colliders';
 import { Inv } from './Inventory';
-import { getTemplate, instantiate, ghostObject, ghostMaterial, worldColliders, type PieceObject } from './BuildMeshes';
+import { getTemplate, instantiate, ghostObject, ghostMaterial, worldColliders, createCrops, type PieceObject } from './BuildMeshes';
+import { SETTLEMENT_RADIUS } from '../data/village';
 import type { Game } from '../Game';
 import type { LightSource } from '../world/Landmarks';
 import { computeStability, predictStability, touches, MIN_STABILITY, type StabNode } from './Stability';
@@ -148,6 +149,7 @@ export class BuildSystem {
     const boxes = [...colliders, ...doorColliders].map(toBox);
     const sboxes = boxes.length ? boxes : this.boundsBoxes(def, state.x, state.y, state.z, state.rot);
     if (def.shape === 'road') this.buildRoadMesh(obj.object, state);
+    if (def.shape === 'farm_plot') obj.object.add(createCrops());
     const p: PlacedPiece = { state, def, obj, colliders, boxes, doorColliders, doorAngle: state.open ? -1.9 : 0, sboxes };
     // stability graph
     this.grounded.set(state.id, def.shape === 'road' || this.isGroundedBoxes(sboxes));
@@ -570,6 +572,12 @@ export class BuildSystem {
     const allBoxes = cand.length ? cand.map(toBox) : this.boundsBoxes(def, x, y, z, rot);
     const clash = this.clashCheck(def, x, y, z, candBoxes, allBoxes);
     if (clash) return { valid: false, reason: clash };
+    // Settlement rules: one town hall; village buildings belong inside the settlement radius
+    if (def.id === 'town_hall' && [...this.pieces.values()].some((p) => p.def.id === 'town_hall')) return { valid: false, reason: '마을 회관은 하나만 지을 수 있습니다' };
+    if (def.category === 'village' && def.id !== 'town_hall') {
+      const hall = [...this.pieces.values()].find((p) => p.def.id === 'town_hall');
+      if (!hall || (hall.state.x - x) ** 2 + (hall.state.z - z) ** 2 > SETTLEMENT_RADIUS ** 2) return { valid: false, reason: `마을 회관 반경 ${SETTLEMENT_RADIUS}m 안에만 지을 수 있습니다` };
+    }
     // Door must sit inside a doorway
     if (def.shape === 'door') {
       const dw = [...this.pieces.values()].find((p) => p.def.shape === 'doorway' && Math.abs(p.state.x - x) < 0.05 && Math.abs(p.state.z - z) < 0.05 && Math.abs(p.state.y - y) < 0.05);
@@ -965,7 +973,7 @@ export class BuildSystem {
       const dz = p.state.z - pos.z;
       const dy = p.state.y - pos.y;
       const d = Math.hypot(dx, dz);
-      if (d > r || Math.abs(dy) > 2) continue;
+      if (d > (p.def.reach ?? r) || Math.abs(dy) > 2.5) continue;
       const dot = d > 0.01 ? (dx * facing.x + dz * facing.z) / d : 1;
       const score = d - dot * 0.8;
       if (score < bestScore) {

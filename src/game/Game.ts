@@ -38,10 +38,12 @@ import { SKILLS, SKILL_BY_ID, SKILL_KEYS } from './data/skills';
 import { Dungeon, DUNGEON_ORIGIN, type DungeonInteractable } from './world/Dungeon';
 import { rank, SKILL_POINTS_PER_LEVEL } from './systems/Stats';
 import type { Projectile } from './entities/Projectiles';
+import { SettlementSystem, freshSettlement } from './systems/Settlement';
+import { VillagerManager } from './entities/Villagers';
 
 export type Screen = 'loading' | 'menu' | 'playing';
-export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint';
-export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map';
+export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint' | 'villager';
+export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map' | 'village';
 
 export interface Interaction {
   label: string;
@@ -62,6 +64,7 @@ export interface UIState {
   fade: number;
   fps: number;
   saveSlot: number;
+  villagerId: number | null;
 }
 
 const INVENTORY_SIZE = 30;
@@ -110,6 +113,7 @@ function freshState(seed: number): GameState {
     counters: {},
     bossDefeated: 0,
     playTime: 0,
+    settlement: freshSettlement(),
   };
 }
 
@@ -143,6 +147,7 @@ export class Game {
     fade: 0,
     fps: 0,
     saveSlot: 0,
+    villagerId: null,
   };
 
   terrain!: Terrain;
@@ -161,6 +166,8 @@ export class Game {
   discovery!: DiscoverySystem;
   mapImage: HTMLCanvasElement | null = null;
   dungeon!: Dungeon;
+  settlement!: SettlementSystem;
+  villagers!: VillagerManager;
   /** Shelter state, updated once per second: under a roof, near a fire, comfort from furniture. */
   shelter = { indoors: false, heat: false, comfort: 0 };
   private shelterTimer = 0;
@@ -263,6 +270,9 @@ export class Game {
     }
     this.dungeon = new Dungeon(this.colliders);
     this.scene.add(this.dungeon.group);
+    this.settlement = new SettlementSystem(this);
+    this.villagers = new VillagerManager(this);
+    this.scene.add(this.villagers.group);
     await this.step('지도를 그리는 중...', 0.9);
     this.mapImage = renderMapImage(this.terrain, 512);
     this.applySettings();
@@ -379,6 +389,7 @@ export class Game {
         mana: sp.mana ?? 40,
       },
       quests: { ...fresh.quests, ...file.state.quests },
+      settlement: { ...freshSettlement(), ...(file.state.settlement ?? {}) },
     };
     if (this.state.player.inventory.length < INVENTORY_SIZE) {
       while (this.state.player.inventory.length < INVENTORY_SIZE) this.state.player.inventory.push(null);
@@ -413,6 +424,7 @@ export class Game {
     this.resources.applyDepleted(st.depletedNodes);
     this.building.setActive(false);
     this.building.load(st.pieces);
+    this.villagers.sync();
     this.discovery.reset();
     this.discovery.loadExplored(st.explored);
     for (const id of st.openedChests) this.landmarks.markChestOpened(id);
@@ -468,6 +480,7 @@ export class Game {
 
   quitToMenu() {
     if (!this.player.dead) this.saveGame(true);
+    this.villagers.clear();
     this.building.setActive(false);
     this.enemies.clear();
     this.projectiles.clear();
@@ -622,6 +635,8 @@ export class Game {
       } else this.discovery.update(simDt);
       this.building.update(simDt, pp);
       this.updateShelter(simDt);
+      this.settlement.update(simDt);
+      this.villagers.update(simDt);
       this.resources.update(simDt, this.state.playTime, pp, this.quality.viewDistance);
       this.env.update(simDt, pp, true);
       this.questCheckTimer -= simDt;
@@ -684,12 +699,13 @@ export class Game {
     else if (i.wasPressed('KeyJ')) this.openMenu('quests');
     else if (i.wasPressed('KeyM')) this.openMenu('map');
     else if (i.wasPressed('KeyK')) this.openMenu('skills');
+    else if (i.wasPressed('KeyH')) this.openMenu('village');
     else if (i.wasPressed('KeyB') && this.inDungeon) this.events.emit('notify', { text: '묘소 안에서는 건축할 수 없습니다', kind: 'warn' });
     else if (i.wasPressed('KeyB') && (this.ui.panel === null || this.ui.panel === 'menu')) {
       if (this.ui.panel) this.closePanel(true);
       this.building.setActive(!this.building.active);
       if (this.building.active) this.events.emit('notify', { text: '건축 모드: [좌클릭] 설치 · [R] 회전 · [휠] 높이 · [X] 철거 · [Tab] 분류', kind: 'info' });
-    } else if ((this.ui.panel === 'chest' || this.ui.panel === 'lore') && (i.wasPressed('KeyE') || i.wasPressed('Tab'))) this.closePanel(true);
+    } else if ((this.ui.panel === 'chest' || this.ui.panel === 'lore' || this.ui.panel === 'villager') && (i.wasPressed('KeyE') || i.wasPressed('Tab'))) this.closePanel(true);
   }
 
   private handleGameplayInput(clickConsumed: boolean) {
@@ -770,6 +786,12 @@ export class Game {
       }
       return best ? (best as { score: number; it: Interaction }).it : null;
     }
+    // Villagers
+    const vil = this.villagers.nearest(p, 2.4);
+    if (vil) {
+      const vp = new THREE.Vector3(vil.x, vil.y, vil.z);
+      consider(vp.distanceTo(p) - 0.7, { label: `대화: ${vil.name}`, key: 'E', kind: 'piece', run: () => this.talkTo(vil.id) });
+    }
     // Landmarks
     for (const lm of this.landmarks.interactables) {
       if (lm.kind === 'chest' && this.state.openedChests.includes(lm.id)) continue;
@@ -807,6 +829,12 @@ export class Game {
         return { label: '보관함 열기', key: 'E', kind: 'piece', run: () => this.openChest(piece.state.id) };
       case 'bed':
         return { label: this.env.isNight ? '잠자기 (아침까지)' : '부활 지점 설정', key: 'E', kind: 'piece', run: () => this.useBed(piece) };
+      case 'village':
+        return { label: def.id === 'town_hall' ? '마을 관리' : def.id === 'warehouse' ? '창고 열기' : '시장 열기', key: 'E', kind: 'piece', run: () => this.openMenu('village') };
+      case 'farm': {
+        const g = piece.state.growth ?? 0;
+        return { label: g >= 1 ? '밀 수확' : `밭 살펴보기 (${Math.floor(g * 100)}%)`, key: 'E', kind: 'piece', run: () => this.settlement.harvestPlot(piece) };
+      }
       default:
         return { label: `${def.name} 사용`, key: 'E', kind: 'piece', run: () => this.openMenu('crafting') };
     }
@@ -1083,6 +1111,8 @@ export class Game {
         return st.quests.completed.includes(r.quest);
       case 'lore':
         return st.loreRead.includes(r.id);
+      case 'settlement':
+        return st.settlement.founded && st.settlement.tier >= r.level;
     }
   }
 
@@ -1460,6 +1490,12 @@ export class Game {
       L.distance = s.distance;
       L.intensity = s.intensity * night * (0.88 + Math.sin(t * 11 + i) * 0.06 + Math.sin(t * 23 + i * 2) * 0.05);
     }
+  }
+
+  // ── Village ─────────────────────────────────────────────
+  talkTo(id: number) {
+    this.ui.villagerId = id;
+    this.openPanel('villager');
   }
 
   // ── Shelter & rest ──────────────────────────────────────

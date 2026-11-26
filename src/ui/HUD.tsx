@@ -162,7 +162,7 @@ function Minimap() {
         <span className="clock-icon">{game.env.isNight ? '☾' : '☀'}</span>
         {game.env.day}일차 · {hh}:{mm}
       </div>
-      <div className="region-name">{game.discovery.regionName()}</div>
+      <div className="region-name">{game.state.settlement.founded && game.settlement.inRadius(game.player.body.pos.x, game.player.body.pos.z) ? `🏘 ${game.state.settlement.name} · 주민 ${game.state.settlement.villagers.length}` : game.discovery.regionName()}</div>
       {game.shelter.indoors && (
         <div className={`shelter ${game.shelter.heat ? 'warm' : ''}`}>
           🏠 실내{game.shelter.heat ? ' · 불 곁' : ''} · 안락도 {game.shelter.comfort}
@@ -484,6 +484,9 @@ function KeyHints() {
       </span>
       <span>
         <kbd>M</kbd>지도
+      </span>
+      <span>
+        <kbd>H</kbd>마을
       </span>
       <span>
         <kbd>Esc</kbd>메뉴

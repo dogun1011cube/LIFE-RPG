@@ -51,6 +51,11 @@ function mats() {
       flower: new THREE.MeshStandardMaterial({ color: 0xe86a8a, roughness: 0.7 }),
       lamp: new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffb050, emissiveIntensity: 1.6 }),
       books: new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: 0.8 }),
+      soil: new THREE.MeshStandardMaterial({ color: 0x5a3e26, roughness: 1 }),
+      awning: new THREE.MeshStandardMaterial({ color: 0xffffff, map: clothTexture('#b8402e'), roughness: 0.95, side: THREE.DoubleSide }),
+      awning2: new THREE.MeshStandardMaterial({ color: 0xffffff, map: clothTexture('#e8dcc0'), roughness: 0.95, side: THREE.DoubleSide }),
+      fruit: new THREE.MeshStandardMaterial({ color: 0xe0642a, roughness: 0.6 }),
+      rock: new THREE.MeshStandardMaterial({ color: 0x7d776c, roughness: 0.95, flatShading: true }),
     };
   }
   return MATS;
@@ -434,6 +439,119 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
       ];
       return { parts, colliders: [col(-0.12, 0, -0.12, 0.12, 2.6, 0.12)], light: [0.5, 2.1, 0], bounds: boundsOf(parts) };
     }
+    case 'town_hall': {
+      const roofA = boxGeo(5.4, 0.16, 2.6, 2);
+      roofA.rotateX(-0.6);
+      roofA.translate(0, 4.05, 1.05);
+      const roofB = boxGeo(5.4, 0.16, 2.6, 2);
+      roofB.rotateX(0.6);
+      roofB.translate(0, 4.05, -1.05);
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-2.7, 0, -2.2, 2.7, 0.45, 2.2), mat: m.stone },
+        { geo: bx(-2.35, 0.45, -1.85, 2.35, 3.3, 1.85), mat: m.wood },
+        { geo: bx(-2.4, 3.15, -1.9, 2.4, 3.35, 1.9), mat: m.woodDark },
+        { geo: bx(-2.4, 0.45, 1.84, -2.2, 3.3, 1.92), mat: m.woodDark },
+        { geo: bx(2.2, 0.45, 1.84, 2.4, 3.3, 1.92), mat: m.woodDark },
+        { geo: bx(-0.6, 0.45, 1.85, 0.6, 2.5, 1.95), mat: m.woodDark },
+        { geo: bx(-1.8, 1.4, 1.85, -1.0, 2.2, 1.9), mat: m.glass },
+        { geo: bx(1.0, 1.4, 1.85, 1.8, 2.2, 1.9), mat: m.glass },
+        { geo: roofA, mat: m.roof },
+        { geo: roofB, mat: m.roof },
+        { geo: bx(-0.45, 4.6, -0.45, 0.45, 5.6, 0.45, 1), mat: m.wood },
+        { geo: new THREE.ConeGeometry(0.75, 0.9, 4).rotateY(Math.PI / 4).translate(0, 6.05, 0), mat: m.roof },
+        { geo: new THREE.SphereGeometry(0.22, 10, 8).translate(0, 5.05, 0.3), mat: m.gold },
+        { geo: bx(0.95, 2.3, 2.0, 1.15, 2.6, 2.2, 1), mat: m.lamp },
+        { geo: bx(-2.8, 0, 2.2, 2.8, 0.18, 3.0), mat: m.stoneDark },
+      ];
+      return { parts, colliders: [col(-2.7, 0, -2.2, 2.7, 0.45, 2.2), col(-2.35, 0.45, -1.85, 2.35, 4.5, 1.85)], light: [1.05, 2.5, 2.6], bounds: boundsOf(parts) };
+    }
+    case 'warehouse': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-1.9, 0, -1.4, 1.9, 2.5, 1.4), mat: m.wood },
+        { geo: bx(-2.1, 2.5, -1.6, 2.1, 2.7, 1.6), mat: m.roof },
+        { geo: bx(-0.8, 0, 1.38, 0.8, 2.0, 1.46), mat: m.woodDark },
+        { geo: bx(-0.05, 0, 1.45, 0.05, 2.0, 1.5), mat: m.metal },
+        { geo: bx(2.0, 0, 0.2, 2.8, 0.8, 1.0, 1), mat: m.woodDark },
+        { geo: bx(2.05, 0.8, 0.35, 2.65, 1.4, 0.95, 1), mat: m.wood },
+        { geo: bx(2.0, 0, -1.0, 2.7, 0.7, -0.3, 1), mat: m.wood },
+      ];
+      return { parts, colliders: [col(-1.9, 0, -1.4, 1.9, 2.7, 1.4), col(2.0, 0, -1.0, 2.8, 1.4, 1.0)], bounds: boundsOf(parts) };
+    }
+    case 'farm_plot': {
+      const parts: PieceTemplate['parts'] = [{ geo: bx(-G / 2 + 0.05, -0.05, -G / 2 + 0.05, G / 2 - 0.05, 0.1, G / 2 - 0.05), mat: m.soil }];
+      for (const z of [-0.6, 0, 0.6]) parts.push({ geo: bx(-0.9, 0.1, z - 0.06, 0.9, 0.16, z + 0.06), mat: m.dirt });
+      return { parts, colliders: [], bounds: new THREE.Box3(new THREE.Vector3(-G / 2, -0.1, -G / 2), new THREE.Vector3(G / 2, 0.4, G / 2)) };
+    }
+    case 'lumber_camp': {
+      const parts: PieceTemplate['parts'] = [];
+      for (let r = 0; r < 3; r++) {
+        for (let k = 0; k < 4 - r; k++) {
+          parts.push({ geo: new THREE.CylinderGeometry(0.2, 0.2, 2.2, 8).rotateZ(Math.PI / 2).translate(-0.6, 0.2 + r * 0.36, -0.6 + k * 0.42 + r * 0.21), mat: m.woodDark });
+        }
+      }
+      parts.push({ geo: new THREE.CylinderGeometry(0.35, 0.4, 0.6, 10).translate(1.1, 0.3, 0.6), mat: m.wood });
+      parts.push({ geo: bx(1.07, 0.6, 0.45, 1.13, 1.2, 0.51, 1), mat: m.woodDark });
+      parts.push({ geo: bx(0.98, 1.05, 0.38, 1.22, 1.22, 0.62, 1), mat: m.metal });
+      parts.push({ geo: bx(-1.9, 0, 1.1, -1.75, 1.8, 1.25, 1), mat: m.woodDark });
+      parts.push({ geo: bx(0.6, 0, 1.1, 0.75, 1.8, 1.25, 1), mat: m.woodDark });
+      const lean = boxGeo(2.9, 0.1, 1.6, 2);
+      lean.rotateX(0.35);
+      lean.translate(-0.6, 1.6, 0.55);
+      parts.push({ geo: lean, mat: m.roof });
+      return { parts, colliders: [col(-1.8, 0, -0.9, 0.6, 1.1, 0.9), col(0.7, 0, 0.2, 1.5, 0.6, 1.0)], bounds: boundsOf(parts) };
+    }
+    case 'mine_shaft': {
+      const mound = new THREE.DodecahedronGeometry(1.9, 0);
+      mound.scale(1.3, 0.9, 1.1);
+      mound.translate(0, 0.6, -0.9);
+      const parts: PieceTemplate['parts'] = [
+        { geo: mound, mat: m.rock },
+        { geo: bx(-0.9, 0, 0.6, -0.65, 2.1, 0.85, 1), mat: m.woodDark },
+        { geo: bx(0.65, 0, 0.6, 0.9, 2.1, 0.85, 1), mat: m.woodDark },
+        { geo: bx(-1.0, 2.0, 0.55, 1.0, 2.3, 0.9, 1), mat: m.woodDark },
+        { geo: bx(-0.65, 0, 0.55, 0.65, 2.0, 0.6, 1), mat: new THREE.MeshBasicMaterial({ color: 0x0a0806 }) },
+        { geo: bx(-0.45, 0.02, 0.9, -0.38, 0.06, 3.0, 1), mat: m.metal },
+        { geo: bx(0.38, 0.02, 0.9, 0.45, 0.06, 3.0, 1), mat: m.metal },
+        { geo: bx(-0.5, 0.25, 1.9, 0.5, 0.75, 2.7, 1), mat: m.woodDark },
+        { geo: new THREE.DodecahedronGeometry(0.28, 0).translate(0, 0.85, 2.3), mat: m.rock },
+      ];
+      return { parts, colliders: [col(-2.2, 0, -2.6, 2.2, 2.2, 0.55), col(-0.5, 0, 1.9, 0.5, 0.75, 2.7)], bounds: boundsOf(parts) };
+    }
+    case 'market_stall': {
+      const parts: PieceTemplate['parts'] = [];
+      for (const [x, z] of [
+        [-1.3, -0.8],
+        [1.3, -0.8],
+        [-1.3, 0.8],
+        [1.3, 0.8],
+      ])
+        parts.push({ geo: bx(x - 0.07, 0, z - 0.07, x + 0.07, 2.4, z + 0.07, 1), mat: m.woodDark });
+      for (let i = 0; i < 6; i++) {
+        const strip = boxGeo(0.46, 0.04, 2.1, 1);
+        strip.rotateX(0.25);
+        strip.translate(-1.15 + i * 0.46, 2.45, 0.1);
+        parts.push({ geo: strip, mat: i % 2 === 0 ? m.awning : m.awning2 });
+      }
+      parts.push({ geo: bx(-1.25, 0, 0.45, 1.25, 0.95, 0.85, 1), mat: m.wood });
+      parts.push({ geo: bx(-1.0, 0.95, 0.5, -0.4, 1.2, 0.8, 1), mat: m.woodDark });
+      for (let i = 0; i < 5; i++) parts.push({ geo: new THREE.SphereGeometry(0.09, 8, 6).translate(0.1 + (i % 3) * 0.2, 1.05, 0.6 + Math.floor(i / 3) * 0.15), mat: m.fruit });
+      parts.push({ geo: bx(0.7, 0.95, 0.5, 1.1, 1.15, 0.8, 1), mat: m.books });
+      return { parts, colliders: [col(-1.3, 0, 0.4, 1.3, 1.0, 0.9)], bounds: boundsOf(parts) };
+    }
+    case 'well': {
+      const ring = new THREE.CylinderGeometry(0.85, 0.9, 0.85, 14, 1, true).translate(0, 0.42, 0);
+      const parts: PieceTemplate['parts'] = [
+        { geo: ring, mat: m.stone },
+        { geo: new THREE.CylinderGeometry(0.75, 0.75, 0.05, 14).translate(0, 0.3, 0), mat: new THREE.MeshStandardMaterial({ color: 0x2a5a7a, roughness: 0.2 }) },
+        { geo: new THREE.TorusGeometry(0.88, 0.08, 6, 16).rotateX(Math.PI / 2).translate(0, 0.86, 0), mat: m.stoneDark },
+        { geo: bx(-0.85, 0.85, -0.06, -0.73, 2.2, 0.06, 1), mat: m.woodDark },
+        { geo: bx(0.73, 0.85, -0.06, 0.85, 2.2, 0.06, 1), mat: m.woodDark },
+        { geo: new THREE.CylinderGeometry(0.06, 0.06, 1.7, 6).rotateZ(Math.PI / 2).translate(0, 1.8, 0), mat: m.wood },
+        { geo: new THREE.ConeGeometry(1.15, 0.7, 4).rotateY(Math.PI / 4).translate(0, 2.5, 0), mat: m.roof },
+        { geo: new THREE.CylinderGeometry(0.14, 0.11, 0.22, 8).translate(0, 1.2, 0), mat: m.woodDark },
+      ];
+      return { parts, colliders: [col(-0.9, 0, -0.9, 0.9, 0.9, 0.9)], bounds: boundsOf(parts) };
+    }
     case 'banner': {
       const clothGeo = new THREE.PlaneGeometry(0.9, 1.6, 1, 4);
       clothGeo.translate(0.5, 2.0, 0);
@@ -554,4 +672,25 @@ export function worldColliders(locals: LocalCollider[], x: number, y: number, z:
     }
   }
   return out;
+}
+
+/** Wheat rows for a farm plot; the settlement scales/colours them by growth. */
+export function createCrops(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'crops';
+  const stem = new THREE.MeshStandardMaterial({ color: 0x6f9a3a, roughness: 0.9 });
+  const head = new THREE.MeshStandardMaterial({ color: 0x9ab84a, roughness: 0.8 });
+  g.userData.head = head;
+  g.userData.stem = stem;
+  for (const z of [-0.6, 0, 0.6]) {
+    for (let i = 0; i < 6; i++) {
+      const x = -0.75 + i * 0.3 + ((i * 7 + Math.round(z * 10)) % 3) * 0.03;
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.6, 4), stem);
+      s.position.set(x, 0.42, z);
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.025, 0.18, 5), head);
+      h.position.set(x, 0.78, z);
+      g.add(s, h);
+    }
+  }
+  return g;
 }

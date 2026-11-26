@@ -433,3 +433,38 @@ kbd {
 .shelter.warm { border-color: rgba(255, 170, 90, 0.6); color: #ffd7a8; }
 .text-input { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line); color: var(--text); padding: 10px 12px; border-radius: 6px; font-size: 15px; font-family: var(--font); outline: none; }
 .text-input:focus { border-color: var(--gold); }
+
+/* ── Phase 4: village ─────────────────────── */
+.vtag { position: absolute; left: 0; top: 0; display: none; text-align: center; font-size: 12px; font-weight: 700; color: #d8f5c8; text-shadow: 0 1px 2px #000, 0 0 4px #000; white-space: nowrap; will-change: transform; }
+.vtag small { display: block; font-size: 10px; font-weight: 500; color: #b8cfa8; }
+.village-empty { max-width: 620px; display: flex; flex-direction: column; gap: 8px; }
+.tier-row { display: flex; flex-direction: column; padding: 4px 0; font-size: 13px; }
+.tier-row.done b { color: var(--good); }
+.village-layout { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+.village-head { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line-soft); padding-bottom: 10px; }
+.village-head .qd-title { font-size: 20px; }
+.vstat { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.vstat .bad { color: var(--bad); }
+.obj-bar.wide { width: 120px; }
+.vbtns { margin-left: auto; display: flex; gap: 8px; }
+.village-cols { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 16px; flex: 1; overflow: hidden; }
+.vcol { overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.villager-row { display: grid; grid-template-columns: 26px 1fr 138px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 7px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-soft); }
+.vmood { font-size: 18px; }
+.vinfo { display: flex; flex-direction: column; font-size: 13px; }
+.vinfo small { color: var(--muted); font-size: 11px; }
+.job-select { background: rgba(0, 0, 0, 0.45); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font-family: var(--font); font-size: 12px; }
+.job-row { display: grid; grid-template-columns: 56px 1fr 36px; gap: 6px; font-size: 12px; align-items: center; }
+.job-row b { text-align: right; }
+.wh-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.wh-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px; border-radius: 6px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-soft); cursor: pointer; font-size: 11px; font-weight: 700; }
+.wh-item:hover { border-color: var(--gold); }
+.food-dot { position: absolute; top: 3px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: #e9c46a; }
+.slot-grid.mini { grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.tiny-slot { width: 100%; height: 34px; border-radius: 5px; }
+.tiny-slot .qty { font-size: 9px; bottom: 0; right: 2px; }
+.trade-row { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.vlog { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.villager-panel { width: min(440px, 92vw); }
+.villager-quote { font-style: italic; color: #f1e6c8; background: rgba(255, 255, 255, 0.04); border-left: 2px solid var(--gold); padding: 8px 12px; border-radius: 4px; }
+.job-buttons { display: flex; flex-wrap: wrap; gap: 6px; }

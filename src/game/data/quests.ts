@@ -188,6 +188,49 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: { xp: 250, items: [{ item: 'stone_brick', qty: 10 }] },
   },
+  // ── Village chain (Phase 4) ─────────────────────────────
+  {
+    id: 'v_found', title: '새로운 시작', chain: 'main', requires: ['q_shelter'],
+    summary: '마을 회관을 짓고 정착지를 세우자.',
+    description: '집을 지었으니 이제 이웃을 맞이할 차례다. [B] 건축 모드의 "마을" 분류에서 마을 회관을 지으면 그 주변이 정착지가 된다.',
+    objectives: [{ type: 'build', piece: 'town_hall', count: 1 }],
+    rewards: { xp: 150 },
+  },
+  {
+    id: 'v_first', title: '첫 주민', chain: 'main', requires: ['v_found'],
+    summary: '침대를 놓아 주민을 맞이하자.',
+    description: '회관 반경 45m 안의 침대 하나마다 주민 한 명이 살 수 있다. 빈 침대가 있고 창고에 음식이 조금이라도 있으면 여행자가 찾아온다. 창고를 짓고 산딸기나 고기를 맡겨 두자.',
+    objectives: [{ type: 'counter', key: 'village:pop', count: 1, label: '주민' }],
+    rewards: { xp: 100, items: [{ item: 'bread', qty: 3 }] },
+  },
+  {
+    id: 'v_jobs', title: '일하는 마을', chain: 'main', requires: ['v_first'],
+    summary: '주민 세 명에게 일을 맡기자.',
+    description: '밭, 벌목장, 광산 갱도를 짓고 [H] 마을 관리 창에서 주민에게 직업을 맡기자. 낮에 일한 결과물은 창고에 쌓인다.',
+    objectives: [{ type: 'counter', key: 'village:employed', count: 3, label: '일하는 주민' }],
+    rewards: { xp: 150 },
+  },
+  {
+    id: 'v_village', title: '마을로 성장', chain: 'main', requires: ['v_jobs'],
+    summary: '정착지를 "마을" 단계로 키우자.',
+    description: '주민 4명, 창고, 서로 다른 일터 2종 이상이 있으면 정착지는 마을이 된다. 마을이 되면 수용 인원이 늘고 시장 가판대를 지을 수 있다.',
+    objectives: [{ type: 'counter', key: 'village:tier', count: 2, label: '마을 단계' }],
+    rewards: { xp: 300, items: [{ item: 'coin', qty: 50 }] },
+  },
+  {
+    id: 'v_trade', title: '첫 거래', chain: 'side', requires: ['v_village'],
+    summary: '시장에서 거래하자.',
+    description: '시장 가판대를 짓고 상인을 배정하면 은화로 물건을 사고팔 수 있다.',
+    objectives: [{ type: 'counter', key: 'trade', count: 1, label: '거래' }],
+    rewards: { xp: 80 },
+  },
+  {
+    id: 'v_town', title: '발전된 마을', chain: 'main', requires: ['v_village', 'q_warden'],
+    summary: '정착 헌장으로 마을을 발전시키자.',
+    description: '주민 8명, 행복도 60 이상, 시장이 있는 마을의 회관에서 정착 헌장을 사용하면 "발전된 마을"이 된다. 이제 도시를 꿈꿀 차례다.',
+    objectives: [{ type: 'counter', key: 'village:tier', count: 3, label: '발전된 마을 단계' }],
+    rewards: { xp: 600 },
+  },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

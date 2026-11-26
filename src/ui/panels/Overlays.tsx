@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGame } from '../GameContext';
+import { JOBS, JOB_ORDER, VILLAGER_LINES, type JobId } from '../../game/data/village';
 
 export function LorePanel() {
   const game = useGame();
@@ -72,6 +73,66 @@ export function BlueprintNamePanel() {
             취소
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function VillagerPanel() {
+  const game = useGame();
+  const id = game.ui.villagerId;
+  const v = id !== null ? game.settlement.villager(id) : undefined;
+  if (!v) return null;
+  const S = game.settlement;
+  const mood = !v.fed ? 'hungry' : v.homeId === null ? 'homeless' : !v.job ? 'jobless' : v.happiness >= 70 ? 'happy' : v.happiness >= 35 ? 'ok' : 'sad';
+  const lines = VILLAGER_LINES[mood];
+  const line = lines[(v.id + game.env.day) % lines.length];
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && game.closePanel(true)}>
+      <div className="panel villager-panel">
+        <div className="panel-title">
+          {v.name} <span className="muted small">· {v.job ? JOBS[v.job as JobId].name : '무직'}</span>
+        </div>
+        <div className="villager-quote">"{line}"</div>
+        <div className="stat-list">
+          <div>
+            <span>상태</span>
+            <b>{game.villagers.activityOf(v.id)}</b>
+          </div>
+          <div>
+            <span>행복도</span>
+            <b>{Math.round(v.happiness)}</b>
+          </div>
+          <div>
+            <span>집</span>
+            <b>{v.homeId !== null ? '있음' : '없음'}</b>
+          </div>
+          <div>
+            <span>식사</span>
+            <b>{v.fed ? '배부름' : '굶주림'}</b>
+          </div>
+          <div>
+            <span>정착일</span>
+            <b>{v.arrivedDay}일차</b>
+          </div>
+        </div>
+        <div className="req-title">일 맡기기</div>
+        <div className="job-buttons">
+          {JOB_ORDER.map((j) => {
+            const free = S.freeWorkplaces(j).length;
+            return (
+              <button key={j} className={`btn small ${v.job === j ? 'primary' : ''}`} disabled={v.job !== j && free === 0} onClick={() => S.assignJob(v.id, j)}>
+                {JOBS[j].name} <small>({free})</small>
+              </button>
+            );
+          })}
+          <button className="btn small" onClick={() => S.assignJob(v.id, null)}>
+            쉬게 하기
+          </button>
+        </div>
+        <button className="btn" onClick={() => game.closePanel(true)}>
+          닫기 <kbd>E</kbd>
+        </button>
       </div>
     </div>
   );

@@ -44,6 +44,8 @@ export interface PieceState {
   rot: number; // radians
   open?: boolean;
   storage?: Slot[];
+  /** farm plots: crop growth 0..1 */
+  growth?: number;
 }
 
 export interface QuestProgress {
@@ -55,6 +57,37 @@ export interface QuestState {
   active: QuestProgress[];
   completed: string[];
   tracked: string[];
+}
+
+export interface Villager {
+  id: number;
+  name: string;
+  job: string | null;
+  workId: number | null;
+  homeId: number | null;
+  x: number;
+  y: number;
+  z: number;
+  happiness: number;
+  fed: boolean;
+  look: number;
+  arrivedDay: number;
+  sadDays: number;
+}
+
+export interface SettlementState {
+  founded: boolean;
+  hallId: number | null;
+  name: string;
+  tier: number;
+  charter: boolean;
+  villagers: Villager[];
+  nextId: number;
+  warehouse: Record<string, number>;
+  log: { day: number; text: string }[];
+  arrivalTimer: number;
+  productionTimer: number;
+  lastDay: number;
 }
 
 export interface WorldState {
@@ -82,6 +115,7 @@ export interface GameState {
   counters: Record<string, number>;
   bossDefeated: number;
   playTime: number;
+  settlement: SettlementState;
 }
 
 export interface SaveFile {
