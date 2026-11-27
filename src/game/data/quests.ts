@@ -338,6 +338,13 @@ export const QUESTS: QuestDef[] = [
     objectives: [{ type: 'counter', key: 'faction:rep', count: 50, label: '상단 평판' }],
     rewards: { xp: 500 },
   },
+  {
+    id: 'w_cave', title: '용암 동굴', chain: 'side', requires: ['w_landing'],
+    summary: '용암 동굴의 흑요석 파수꾼을 쓰러뜨리자.',
+    description: '불의 산 동쪽 비탈에 용암 동굴이 있다. 안쪽의 용암 강은 냉각 밸브 셋을 모두 돌리면 식고, 현무암 문이 열린다. 밸브 하나는 강 건너편에 있으니 불씨 열매를 챙기자. 무너진 바위벽 너머에는 탐험대의 상자가 숨겨져 있다.',
+    objectives: [{ type: 'kill', enemy: 'obsidian_sentinel', count: 1 }],
+    rewards: { xp: 900, items: [{ item: 'ember_fruit', qty: 4 }] },
+  },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

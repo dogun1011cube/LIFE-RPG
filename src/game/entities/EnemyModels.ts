@@ -346,13 +346,14 @@ function wisp(pal = { core: 0xb48aff, emissive: 0x8a4aff, shell: 0x3a2266, shell
   };
 }
 
-function skeleton(archer: boolean): EnemyRig {
+function skeleton(archer: boolean, charred = false): EnemyRig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const bone = mat(0xe6dfcc, 0.7);
-  const boneDark = mat(0xb8ae94, 0.8);
-  const eye = archer ? 0x5fe0f0 : 0xff4a2a;
+  // charred skeletons: blackened bones with embers in the cracks
+  const bone = charred ? mat(0x4a3a32, 0.8, { emissive: 0x5a1a04, emissiveIntensity: 0.5 }) : mat(0xe6dfcc, 0.7);
+  const boneDark = charred ? mat(0x2e2420, 0.85) : mat(0xb8ae94, 0.8);
+  const eye = archer ? 0x5fe0f0 : charred ? 0xffaa2a : 0xff4a2a;
   const eyeMat = mat(eye, 0.3, { emissive: eye, emissiveIntensity: 2 });
   const rust = mat(0x7a6a5a, 0.5, { metalness: 0.5 });
   const cyl = (r: number, h: number, m: THREE.Material) => new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.85, h, 6), m);
@@ -613,6 +614,13 @@ export function buildEnemyRig(model: EnemyModel, scale: number): EnemyRig {
       break;
     case 'fire_wisp':
       rig = wisp({ core: 0xffc27a, emissive: 0xff6a1a, shell: 0x6a2a0a, shellE: 0xaa3a0a, glow: 0xff8a3a });
+      break;
+    case 'cinder':
+      rig = skeleton(false, true);
+      break;
+    case 'sentinel':
+      rig = golem({ color: 0x2e2838, eye: 0xc08aff, horns: true, rune: 0x9a5aff, glow: 0x2a1048 });
+      rig.root.scale.setScalar(1.45);
       break;
     case 'titan':
       rig = golem({ color: 0x5a4238, eye: 0xffaa3a, horns: true, rune: 0xff4a0a, glow: 0x8a2a08 });

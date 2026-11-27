@@ -21,6 +21,7 @@ import { CollisionWorld } from './world/Colliders';
 import { Player } from './entities/Player';
 import { CameraRig } from './entities/CameraRig';
 import { EnemyManager, type Enemy } from './entities/Enemies';
+import { ENEMIES } from './data/enemies';
 import { ProjectileSystem } from './entities/Projectiles';
 import { PickupSystem } from './entities/Pickups';
 import { Particles } from './systems/Particles';
@@ -35,7 +36,7 @@ import { renderMapImage } from './systems/MapRenderer';
 import { angleDiff } from './core/math';
 import { groundAt } from './entities/physics';
 import { SKILLS, SKILL_BY_ID, SKILL_KEYS } from './data/skills';
-import { Dungeon, DUNGEON_ORIGIN, type DungeonInteractable } from './world/Dungeon';
+import { Dungeon, createDungeons, type DungeonInteractable } from './world/Dungeon';
 import { rank, SKILL_POINTS_PER_LEVEL } from './systems/Stats';
 import type { Projectile } from './entities/Projectiles';
 import { SettlementSystem, freshSettlement, migrateSettlement } from './systems/Settlement';
@@ -176,7 +177,12 @@ export class Game {
   quests!: QuestSystem;
   discovery!: DiscoverySystem;
   mapImage: HTMLCanvasElement | null = null;
-  dungeon!: Dungeon;
+  dungeons!: Record<string, Dungeon>;
+  /** which dungeon `dungeon` refers to (the one you are in, or were last in) */
+  activeDungeon = 'crypt';
+  get dungeon(): Dungeon {
+    return this.dungeons[this.activeDungeon];
+  }
   settlement!: SettlementSystem;
   villagers!: VillagerManager;
   civ!: CivSystem;
@@ -287,8 +293,8 @@ export class Game {
       this.lights.push(l);
       this.scene.add(l);
     }
-    this.dungeon = new Dungeon(this.colliders);
-    this.scene.add(this.dungeon.group);
+    this.dungeons = createDungeons(this.colliders);
+    for (const d of Object.values(this.dungeons)) this.scene.add(d.group);
     this.settlement = new SettlementSystem(this);
     this.civ = new CivSystem(this);
     this.defense = new DefenseSystem(this);
@@ -439,7 +445,7 @@ export class Game {
     const st = this.state;
     if (this.inDungeon) this.setDungeonVisuals(false);
     this.inDungeon = false;
-    this.dungeon.reset();
+    for (const d of Object.values(this.dungeons)) d.reset();
     if (st.world.seed !== this.terrain.seed) console.warn('Save uses a different world seed; loading on the current world.');
     this.env.time = st.world.time;
     this.env.day = st.world.day;
@@ -489,8 +495,8 @@ export class Game {
     st.explored = this.discovery.serializeExplored();
     const snap = JSON.parse(JSON.stringify(st)) as GameState;
     if (this.inDungeon) {
-      // never persist an interior position: reloading puts you at the crypt entrance
-      const e = this.cryptExterior();
+      // never persist an interior position: reloading puts you at the dungeon entrance
+      const e = this.dungeonExterior();
       snap.player.x = e.x;
       snap.player.y = e.y;
       snap.player.z = e.z;
@@ -653,17 +659,18 @@ export class Game {
       }
       if (this.inDungeon) {
         this.dungeon.update(simDt);
-        if (!this.dungeon.keeperSpawned && this.dungeon.inBossChamber(pp) && !this.player.dead) {
-          this.dungeon.keeperSpawned = true;
-          const k = this.dungeon.keeperSpawn();
-          const e = this.enemies.spawn('crypt_keeper', k.x, k.z, k.y);
+        if (!this.dungeon.bossSpawned && this.dungeon.inBossChamber(pp) && !this.player.dead) {
+          this.dungeon.bossSpawned = true;
+          const k = this.dungeon.bossSpawn();
+          const e = this.enemies.spawn(this.dungeon.def.boss.enemy, k.x, k.z, k.y);
           e.aggro = true;
           e.setState('chase');
           this.audio.play('boss');
           this.events.emit('banner', { title: e.def.name, subtitle: e.def.bossTitle ?? '', kind: 'boss' });
           this.cameraRig.shake(0.5);
         }
-        if (pp.y < DUNGEON_ORIGIN.y - 6) {
+        if (this.dungeon.lavaAt(pp)) this.burn(simDt);
+        if (pp.y < this.dungeon.origin.y - 6) {
           this.player.body.pos.copy(this.dungeon.entryPos);
           this.player.body.vel.set(0, 0, 0);
         }
@@ -968,7 +975,7 @@ export class Game {
       this.enemies.summonTitan();
       this.bridge.bump();
     } else if (lm.kind === 'dungeon') {
-      this.enterDungeon();
+      this.enterDungeon(loc.dungeon ?? 'crypt');
     } else if (lm.kind === 'station') {
       this.openMenu('crafting');
     }
@@ -1376,8 +1383,8 @@ export class Game {
       const p = this.state.player;
       if (p.buffs.some((b) => b.id === 'riposte')) p.buffs = p.buffs.filter((b) => b.id !== 'riposte');
     }
-    // the cracked wall in the crypt can be smashed open
-    if (this.inDungeon && !this.dungeon.wallBroken) {
+    // cracked / collapsed walls in dungeons can be smashed open
+    if (this.inDungeon && this.dungeon.hasCrack() && !this.dungeon.wallBroken) {
       const w = this.dungeon.crackWallPos();
       const dx = w.x - pp.x;
       const dz = w.z - pp.z;
@@ -1426,11 +1433,13 @@ export class Game {
         this.landmarks.setBrazierLit(b.id, false);
       }
       this.requestAutosave();
-    } else if (def.id === 'crypt_keeper') {
-      this.dungeon.keeperDefeated = true;
-      this.events.emit('banner', { title: '묘지기를 쓰러뜨렸다!', subtitle: '왕의 보물함의 봉인이 풀렸다', kind: 'boss' });
-      this.particles.rise(pos, 0xb06aff, 70, 2.5);
-      for (const o of this.enemies.list) if (o.def.id === 'skeleton' && o.state !== 'dead') o.hp = 0, this.enemies.onDamaged(o, 999, new THREE.Vector3(), true);
+    } else if (this.inDungeon && def.id === this.dungeon.def.boss.enemy) {
+      const B = this.dungeon.def.boss;
+      this.dungeon.bossDefeated = true;
+      this.events.emit('banner', { title: B.deadTitle, subtitle: B.deadSubtitle, kind: 'boss' });
+      this.particles.rise(pos, B.color, 70, 2.5);
+      for (const o of this.enemies.list) if (o.def.id === B.minion && o.state !== 'dead') o.hp = 0, this.enemies.onDamaged(o, 999, new THREE.Vector3(), true);
+      st.counters[`dungeon:${this.dungeon.def.id}:boss`] = (st.counters[`dungeon:${this.dungeon.def.id}:boss`] ?? 0) + 1;
       this.requestAutosave();
     }
     this.quests.check();
@@ -1630,15 +1639,7 @@ export class Game {
     // lava pools in the crater
     for (const l of LAVA_POOLS) {
       if (Math.hypot(pp.x - l.x, pp.z - l.z) < l.r && pp.y < this.terrain.heightAt(l.x, l.z) + 0.6) {
-        const dmg = 22 * dt * (buff('fire_ward') ? 0.5 : 1);
-        p.hp -= dmg;
-        this.player.lastHurtAt = this.state.playTime;
-        if (this.state.playTime - this.lavaWarned > 3) {
-          this.lavaWarned = this.state.playTime;
-          this.events.emit('notify', { text: '용암에 데이고 있다! (불씨 열매: 화염 저항)', kind: 'warn' });
-          this.audio.play('hurt', 0.6);
-        }
-        if (p.hp <= 0) this.damagePlayer(9999, pp.clone(), { unblockable: true });
+        this.burn(dt);
         break;
       }
     }
@@ -1939,15 +1940,21 @@ export class Game {
   }
 
   // ── Dungeon ─────────────────────────────────────────────
-  cryptExterior(): THREE.Vector3 {
-    const loc = LOCATION_BY_ID.crypt_entrance;
-    const x = loc.x;
-    const z = loc.z + 6.5;
+  /** Where you come out of a dungeon: in front of its entrance in the overworld. */
+  dungeonExterior(id = this.activeDungeon): THREE.Vector3 {
+    const d = this.dungeons[id].def;
+    const loc = LOCATION_BY_ID[d.location];
+    const x = loc.x + d.exitOffset[0];
+    const z = loc.z + d.exitOffset[1];
     return new THREE.Vector3(x, groundAt(this.terrain, this.colliders, x, z, 0.35, this.terrain.heightAt(x, z) + 30, 0) + 0.05, z);
   }
 
+  cryptExterior(): THREE.Vector3 {
+    return this.dungeonExterior('crypt');
+  }
+
   private setDungeonVisuals(inside: boolean) {
-    this.dungeon.group.visible = inside;
+    for (const d of Object.values(this.dungeons)) d.group.visible = inside && d === this.dungeon;
     this.terrain.mesh.visible = !inside;
     this.water.mesh.visible = !inside;
     this.resources.group.visible = !inside;
@@ -1957,25 +1964,31 @@ export class Game {
     this.env.interior = inside;
   }
 
-  enterDungeon() {
-    if (this.inDungeon || this.player.dead) return;
+  enterDungeon(id = 'crypt') {
+    if (this.inDungeon || this.player.dead || !this.dungeons[id]) return;
     if (this.building.active) this.building.setActive(false);
+    if (this.boats.onBoard) return;
     this.enemies.clear();
     this.projectiles.clear();
-    this.dungeon.reset();
+    this.activeDungeon = id;
+    const D = this.dungeon;
+    D.reset();
     this.inDungeon = true;
     this.setDungeonVisuals(true);
-    const e = this.dungeon.entryPos;
+    const e = D.entryPos;
     this.player.body.pos.set(e.x, e.y + 0.05, e.z);
     this.player.body.vel.set(0, 0, 0);
     this.player.yaw = 0;
     this.cameraRig.yaw = 0;
     this.cameraRig.pitch = 0.25;
     this.cameraRig.snap();
-    for (const s of this.dungeon.spawns()) this.enemies.spawn(s.enemy, s.x, s.z, DUNGEON_ORIGIN.y);
+    for (const s of D.spawns()) this.enemies.spawn(s.enemy, s.x, s.z, D.origin.y);
+    const c = this.state.counters;
+    c[`dungeon:${id}:entered`] = (c[`dungeon:${id}:entered`] ?? 0) + 1;
     this.ui.fade = 1.2;
     this.audio.play('door');
-    this.events.emit('banner', { title: '잊혀진 묘소', subtitle: '차가운 공기가 뼛속까지 스며든다', kind: 'region' });
+    this.events.emit('banner', { title: D.def.name, subtitle: D.def.enterSubtitle, kind: 'region' });
+    this.quests.check();
     this.bridge.bump();
   }
 
@@ -1990,7 +2003,7 @@ export class Game {
   exitDungeon() {
     if (!this.inDungeon) return;
     this.leaveDungeonState();
-    const e = this.cryptExterior();
+    const e = this.dungeonExterior();
     this.player.body.pos.copy(e);
     this.player.body.vel.set(0, 0, 0);
     this.player.yaw = 0;
@@ -2002,58 +2015,62 @@ export class Game {
     this.bridge.bump();
   }
 
+  /** Lava burns (halved by fire resistance); shared by the crater and dungeons. */
+  private burn(dt: number) {
+    const p = this.state.player;
+    const dmg = 22 * dt * (p.buffs.some((b) => b.id === 'fire_ward') ? 0.5 : 1);
+    p.hp -= dmg;
+    this.player.lastHurtAt = this.state.playTime;
+    if (this.state.playTime - this.lavaWarned > 3) {
+      this.lavaWarned = this.state.playTime;
+      this.events.emit('notify', { text: '용암에 데이고 있다! (불씨 열매: 화염 저항)', kind: 'warn' });
+      this.audio.play('hurt', 0.6);
+    }
+    if (p.hp <= 0) this.damagePlayer(9999, this.player.body.pos.clone(), { unblockable: true });
+  }
+
   private dungeonInteract(it: DungeonInteractable) {
     const st = this.state;
+    const D = this.dungeon;
+    const def = D.def;
     if (it.kind === 'portal') this.exitDungeon();
     else if (it.kind === 'lore') {
-      this.ui.lore = {
-        title: '묘지기의 기록',
-        text:
-          '"왕께서 잠드신 지 천 년. 나는 아직 이곳을 지킨다.\n\n세 개의 문양은 하루의 흐름을 따라야만 길을 연다. 순서를 어긴 자에게 철문은 응답하지 않는다.\n\n벽 너머에 왕의 보물 일부를 숨겨 두었다. 금이 간 돌은 오래 버티지 못하리라."',
-      };
+      this.ui.lore = { title: def.lore.title, text: def.lore.text };
       this.openPanel('lore');
-      if (!st.loreRead.includes('crypt_hall')) {
-        st.loreRead.push('crypt_hall');
+      if (!st.loreRead.includes(def.lore.id)) {
+        st.loreRead.push(def.lore.id);
         this.gainXp(20, '고대의 기록');
       }
-    } else if (it.kind === 'lever' && it.symbol) {
-      const r = this.dungeon.pullLever(it.symbol);
-      if (r === 'already') this.events.emit('notify', { text: '이미 당겨져 있다', kind: 'info' });
+    } else if (it.kind === 'lever' || it.kind === 'valve') {
+      const r = D.usePuzzle(it.kind === 'lever' && it.symbol ? it.symbol : it.id);
+      if (r === 'already') this.events.emit('notify', { text: it.kind === 'valve' ? '이미 돌아가 있다' : '이미 당겨져 있다', kind: 'info' });
       else if (r === 'progress') {
         this.audio.play('door');
-        this.events.emit('notify', { text: '철컥… 어딘가에서 톱니가 맞물리는 소리가 난다', kind: 'info' });
+        const n = def.puzzle.kind === 'valves' ? ` (${D.pulled.length}/${def.puzzle.valves.length})` : '';
+        this.events.emit('notify', { text: def.puzzleHints.progress + n, kind: 'info' });
       } else if (r === 'wrong') {
         this.audio.play('deny');
-        this.events.emit('notify', { text: '레버들이 덜컹거리며 제자리로 돌아간다. 순서가 틀린 것 같다', kind: 'warn' });
+        this.events.emit('notify', { text: def.puzzleHints.wrong ?? '아무 일도 일어나지 않는다', kind: 'warn' });
       } else {
         this.audio.play('slam');
         this.cameraRig.shake(0.4);
-        this.events.emit('banner', { title: '철문이 열렸다', subtitle: '묘소 깊은 곳으로 가는 길이 드러났다', kind: 'discover' });
-        st.counters['crypt:gate'] = (st.counters['crypt:gate'] ?? 0) + 1;
+        this.events.emit('banner', { title: def.gate.openTitle, subtitle: def.gate.openSubtitle, kind: 'discover' });
+        st.counters[def.gate.counter] = (st.counters[def.gate.counter] ?? 0) + 1;
         this.gainXp(50, '퍼즐');
         this.quests.check();
       }
     } else if (it.kind === 'chest') {
       if (st.openedChests.includes(it.id)) return;
-      if (it.id === 'dchest_boss' && !this.dungeon.keeperDefeated) {
+      const chest = def.chests.find((c) => c.id === it.id);
+      if (!chest) return;
+      if (chest.sealed && !D.bossDefeated) {
         this.audio.play('deny');
-        this.events.emit('notify', { text: '보이지 않는 힘이 상자를 봉인하고 있다. 묘지기를 쓰러뜨려야 한다', kind: 'warn' });
+        const boss = ENEMIES[def.boss.enemy]?.name ?? '보스';
+        this.events.emit('notify', { text: `보이지 않는 힘이 상자를 봉인하고 있다. ${boss}을(를) 쓰러뜨려야 한다`, kind: 'warn' });
         return;
       }
       st.openedChests.push(it.id);
-      const items =
-        it.id === 'dchest_hidden'
-          ? [
-              { item: 'arcane_ring', qty: 1 },
-              { item: 'mana_potion', qty: 2 },
-              { item: 'skill_tome', qty: 1 },
-            ]
-          : [
-              { item: 'copper_ingot', qty: 6 },
-              { item: 'crystal', qty: 2 },
-              { item: 'health_potion', qty: 2 },
-            ];
-      for (const x of items) this.giveItem(x.item, x.qty, 'loot');
+      for (const x of chest.items) this.giveItem(x.item, x.qty, 'loot');
       this.audio.play('discover');
       this.particles.rise(it.pos, 0xffd27a, 24, 0.8);
       this.gainXp(40, '보물 발견');

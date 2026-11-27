@@ -331,6 +331,44 @@ export class Landmarks {
         this.tablet(loc, cx + 4.5, cz + 4.5, -0.5);
         break;
       }
+      case 'cave': {
+        // a jagged basalt arch on the volcano's flank, lit from within by lava
+        const rock = new THREE.MeshStandardMaterial({ color: 0x3a3330, roughness: 0.95, flatShading: true });
+        for (const [ox, oz, s, h] of [
+          [-3.2, 0, 1.6, 4.6],
+          [3.2, 0, 1.6, 4.4],
+          [-2.2, -1.5, 1.8, 5.5],
+          [2.4, -1.6, 1.7, 5.2],
+          [0, -2.4, 3.2, 6.4],
+        ] as const) {
+          const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rock);
+          m.scale.set(1, h / (s * 2), 1);
+          m.position.set(cx + ox, base + h / 2 - 0.3, cz + oz);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          this.group.add(m);
+          this.colliders.add({ kind: 'circle', x: cx + ox, z: cz + oz, r: s * 0.9, minY: base - 1, maxY: base + h, owner: 'landmark' });
+        }
+        const lintel = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), rock);
+        lintel.scale.set(2.4, 0.7, 1);
+        lintel.position.set(cx, base + 4.6, cz + 0.2);
+        lintel.castShadow = true;
+        this.group.add(lintel);
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0x2a0a04 });
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 4.0), glowMat);
+        door.position.set(cx, base + 2, cz + 0.6);
+        this.group.add(door);
+        const lavaMat = new THREE.MeshStandardMaterial({ color: 0xff5a1a, emissive: 0xff4a0a, emissiveIntensity: 1.5 });
+        this.pulses.push({ mat: lavaMat, base: 1.5, speed: 1.2 });
+        const crack = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 3.2), lavaMat);
+        crack.rotation.x = -Math.PI / 2;
+        crack.position.set(cx + 0.3, base + 0.05, cz + 2.6);
+        this.group.add(crack);
+        this.lights.push({ pos: new THREE.Vector3(cx, base + 1.6, cz + 1.4), color: 0xff6a2a, intensity: 14, distance: 12 });
+        this.interactables.push({ id: 'cave_door', kind: 'dungeon', locationId: loc.id, pos: new THREE.Vector3(cx, base + 1, cz + 1.4), radius: 2.8, label: '용암 동굴로 들어가기' });
+        this.tablet(loc, cx + 4.2, cz + 4, -0.5);
+        break;
+      }
       case 'landing': {
         const { group, flame } = createCampfire();
         group.position.set(cx, base, cz);

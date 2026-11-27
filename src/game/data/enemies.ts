@@ -1,4 +1,4 @@
-export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden' | 'skeleton' | 'archer' | 'keeper' | 'magma_slime' | 'ash_wolf' | 'lava_golem' | 'fire_wisp' | 'titan';
+export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden' | 'skeleton' | 'archer' | 'keeper' | 'magma_slime' | 'ash_wolf' | 'lava_golem' | 'fire_wisp' | 'titan' | 'cinder' | 'sentinel';
 
 export interface AttackDef {
   kind: 'melee' | 'lunge' | 'slam' | 'ranged' | 'burst' | 'summon';
@@ -170,6 +170,28 @@ const list: EnemyDef[] = [
       { item: 'iron_ingot', chance: 1, min: 6, max: 8 },
       { item: 'health_potion', chance: 1, min: 2, max: 3 },
     ],
+  },
+  // ── 용암 동굴 (dungeon) ─────────────────────────────────
+  {
+    id: 'cinder_skeleton', name: '불탄 해골', level: 10, model: 'cinder', hp: 140, damage: 21, defense: 8, speed: 1.6, chaseSpeed: 4.4,
+    radius: 0.5, height: 1.8, scale: 1.05, aggroRange: 14, leash: 30, cooldown: 1.05, poise: 18, xp: 70, dungeon: true, fire: true,
+    attacks: [
+      { kind: 'melee', range: 2.3, windup: 0.5, active: 0.15, recover: 0.5, mult: 1, arc: 95, weight: 1 },
+      { kind: 'lunge', range: 5.5, minRange: 2.8, windup: 0.7, active: 0.35, recover: 0.8, mult: 1.2, lungeSpeed: 12, weight: 0.5 },
+    ],
+    drops: [{ item: 'bone', chance: 0.8, min: 1, max: 3 }, { item: 'charcoal', chance: 0.6, min: 1, max: 2 }, { item: 'iron_ore', chance: 0.25, min: 1, max: 2 }],
+  },
+  {
+    id: 'obsidian_sentinel', name: '흑요석 파수꾼', level: 12, model: 'sentinel', bossTitle: '용암 동굴의 문지기', hp: 1250, damage: 28, defense: 14, speed: 1.4, chaseSpeed: 3.0,
+    radius: 1.4, height: 3.4, scale: 1, aggroRange: 28, leash: 40, cooldown: 1.2, poise: 55, xp: 800, boss: true, dungeon: true,
+    attacks: [
+      { kind: 'slam', range: 3.8, windup: 1.0, active: 0.2, recover: 1.0, mult: 1.15, aoe: 4.4, weight: 1.3 },
+      { kind: 'melee', range: 3.6, windup: 0.75, active: 0.2, recover: 0.8, mult: 1.0, arc: 140, weight: 1.2 },
+      { kind: 'ranged', range: 22, minRange: 6, windup: 0.85, active: 0.1, recover: 0.9, mult: 0.75, projSpeed: 15, homing: 0.5, color: 0xb06aff, weight: 1 },
+      { kind: 'summon', range: 30, windup: 1.2, active: 0.1, recover: 1.0, mult: 0, summon: 'cinder_skeleton', count: 2, weight: 0.6, phase: 2 },
+      { kind: 'burst', range: 30, minRange: 4, windup: 1.0, active: 0.1, recover: 1.2, mult: 0.7, projCount: 10, projSpeed: 11, weight: 1, phase: 2, color: 0xb06aff },
+    ],
+    drops: [{ item: 'obsidian', chance: 1, min: 3, max: 5 }, { item: 'crystal', chance: 1, min: 2, max: 3 }, { item: 'health_potion', chance: 1, min: 1, max: 2 }],
   },
   {
     id: 'raider_skeleton', name: '떠도는 해골', level: 5, model: 'skeleton', hp: 78, damage: 12, defense: 4, speed: 1.6, chaseSpeed: 4.0,

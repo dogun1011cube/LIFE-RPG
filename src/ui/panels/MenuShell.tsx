@@ -12,7 +12,6 @@ import type { MenuTab } from '../../game/Game';
 import type { Slot } from '../../game/state/types';
 import { SKILLS, TREE_INFO, SKILL_KEY_LABELS, type SkillTree } from '../../game/data/skills';
 import { rank } from '../../game/systems/Stats';
-import { DUNGEON_ORIGIN } from '../../game/world/Dungeon';
 import { MAP_REGION } from '../../game/config';
 import { JOBS, JOB_ORDER, TIERS, MARKET_STOCK, FOOD_VALUE, type JobId } from '../../game/data/village';
 import { CivTab } from './CivTab';
@@ -488,8 +487,9 @@ function MapTab() {
   // zoom 1 shows the island you are on; zoom out further for the whole sea chart
   const isle = game.terrain.islandOf(pp.x, pp.z) ?? game.terrain.home;
   const span = (inD ? 90 : zoom < 1 ? MAP_REGION.size : isle.size) / Math.max(1, zoom);
-  const cx = center ? center[0] : inD ? DUNGEON_ORIGIN.x : zoom < 1 ? MAP_REGION.cx : zoom === 1 ? isle.cx : pp.x;
-  const cz = center ? center[1] : inD ? DUNGEON_ORIGIN.z + 34 : zoom < 1 ? MAP_REGION.cz : zoom === 1 ? isle.cz : pp.z;
+  const dc = game.dungeon.def.mapCenter;
+  const cx = center ? center[0] : inD ? game.dungeon.origin.x + dc[0] : zoom < 1 ? MAP_REGION.cx : zoom === 1 ? isle.cx : pp.x;
+  const cz = center ? center[1] : inD ? game.dungeon.origin.z + dc[1] : zoom < 1 ? MAP_REGION.cz : zoom === 1 ? isle.cz : pp.z;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;

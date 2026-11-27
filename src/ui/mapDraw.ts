@@ -2,7 +2,6 @@ import { MAP_REGION } from '../game/config';
 import { LOCATIONS } from '../game/data/locations';
 import { EXPLORE_RES } from '../game/systems/Discovery';
 import type { Game } from '../game/Game';
-import { DUNGEON_ORIGIN } from '../game/world/Dungeon';
 
 let fogCanvas: HTMLCanvasElement | null = null;
 let fogData: ImageData | null = null;
@@ -228,13 +227,21 @@ function drawDungeonMap(ctx: CanvasRenderingContext2D, game: Game, cx: number, c
   ctx.fillStyle = '#4a4438';
   for (const c of game.dungeon.cells) ctx.fillRect(toX(c.x) - cell / 2 - 0.5, toY(c.z) - cell / 2 - 0.5, cell + 1, cell + 1);
   // gate
-  if (!game.dungeon.gateOpen) {
+  // lava (dimmed once cooled) and the closed gate
+  const D = game.dungeon;
+  for (const lv of D.def.lava ?? []) {
+    const [x0, x1, z0, z1] = lv.rect;
+    ctx.fillStyle = lv.cooled && D.gateOpen ? '#3a302c' : '#ff5a1a';
+    ctx.fillRect(toX(D.origin.x + x0), toY(D.origin.z + z0), ((x1 - x0) / span) * W, ((z1 - z0) / spanZ) * H);
+  }
+  if (!D.gateOpen) {
+    const g = D.def.gate;
     ctx.fillStyle = '#c94a3a';
-    ctx.fillRect(toX(DUNGEON_ORIGIN.x - 2), toY(DUNGEON_ORIGIN.z + 38) - 1.5, (4 / span) * W, 3);
+    ctx.fillRect(toX(D.origin.x + g.at[0] - g.width / 2), toY(D.origin.z + g.at[1]) - 1.5, (g.width / span) * W, 3);
   }
   for (const it of game.dungeon.interactables) {
     if (it.kind === 'chest' && game.state.openedChests.includes(it.id)) continue;
-    ctx.fillStyle = it.kind === 'portal' ? '#5fe0f0' : it.kind === 'chest' ? '#ffd27a' : it.kind === 'lever' ? '#e9c46a' : '#bfb6a0';
+    ctx.fillStyle = it.kind === 'portal' ? '#5fe0f0' : it.kind === 'chest' ? '#ffd27a' : it.kind === 'lever' || it.kind === 'valve' ? (D.pulled.includes(it.symbol ?? it.id) ? '#7fd36a' : '#e9c46a') : '#bfb6a0';
     ctx.beginPath();
     ctx.arc(toX(it.pos.x), toY(it.pos.z), 3 * s, 0, Math.PI * 2);
     ctx.fill();

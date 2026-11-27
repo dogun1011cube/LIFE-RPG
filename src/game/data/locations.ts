@@ -1,6 +1,6 @@
 import type { Cost } from './recipes';
 
-export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck' | 'crypt' | 'landing' | 'outpost' | 'crater';
+export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck' | 'crypt' | 'landing' | 'outpost' | 'crater' | 'cave';
 
 export interface LocationDef {
   id: string;
@@ -18,6 +18,8 @@ export interface LocationDef {
   chest?: { items: Cost[] };
   /** Reading this location's lore reveals another location on the map. */
   reveals?: string;
+  /** the entrance here leads into this dungeon (data/dungeons.ts) */
+  dungeon?: string;
 }
 
 export const LOCATIONS: LocationDef[] = [
@@ -78,7 +80,7 @@ export const LOCATIONS: LocationDef[] = [
     chest: { items: [{ item: 'wood', qty: 20 }, { item: 'fiber', qty: 10 }, { item: 'health_potion', qty: 1 }] },
   },
   {
-    id: 'crypt_entrance', name: '잊혀진 묘소', subtitle: '에테르눔 왕들이 잠든 지하 무덤', kind: 'crypt', x: -170, z: -40, discoverRadius: 22, flatRadius: 16, xp: 80,
+    id: 'crypt_entrance', name: '잊혀진 묘소', subtitle: '에테르눔 왕들이 잠든 지하 무덤', kind: 'crypt', dungeon: 'crypt', x: -170, z: -40, discoverRadius: 22, flatRadius: 16, xp: 80,
     lore: {
       title: '묘소 입구의 경고문',
       text:
@@ -109,10 +111,17 @@ export const LOCATIONS: LocationDef[] = [
     chest: { items: [{ item: 'iron_ingot', qty: 4 }, { item: 'charcoal', qty: 6 }, { item: 'ember_fruit', qty: 3 }, { item: 'health_potion', qty: 1 }] },
   },
   {
-    id: 'ember_crater', name: '불의 분화구', subtitle: '용암 거신이 잠든 곳', kind: 'crater', x: 75, z: 955, discoverRadius: 26, flatRadius: 0, xp: 200,
+    id: 'ember_crater', name: '불의 분화구', subtitle: '용암 거신이 잠든 곳', kind: 'crater', x: 75, z: 955, discoverRadius: 26, flatRadius: 0, xp: 200, reveals: 'ember_cave',
     lore: {
       title: '봉인의 비문',
       text: '세 개의 불꽃이 깨어나면, 산의 심장도 깨어나리라.\n\n심장을 꺼뜨린 자는 그 불을 손에 넣으리라.',
+    },
+  },
+  {
+    id: 'ember_cave', name: '용암 동굴', subtitle: '산허리에 뚫린 뜨거운 동굴', kind: 'cave', dungeon: 'lava_cave', x: 150, z: 990, discoverRadius: 20, flatRadius: 12, xp: 120,
+    lore: {
+      title: '동굴 입구의 표식',
+      text: '탐험대가 바위에 새긴 표식이 있다.\n\n"안쪽에 용암 강이 흐른다. 옛 물길의 밸브를 돌리면 강이 식는다. 그 너머의 검은 파수꾼은 아직 아무도 쓰러뜨리지 못했다."',
     },
   },
 ];
