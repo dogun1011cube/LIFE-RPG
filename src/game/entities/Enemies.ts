@@ -57,6 +57,9 @@ export class Enemy {
   pathFor = new THREE.Vector3(Infinity, 0, 0);
   pathVersion = -1;
   repath = 0;
+  /** wild enemies: times a detour started recently; enough of them switch to path finding for a while */
+  detours = 0;
+  pathMode = 0;
 
   constructor(
     readonly def: EnemyDef,
@@ -105,6 +108,7 @@ export class EnemyManager {
   private pathBudget = 0;
   /** stats for tests */
   raidPaths = 0;
+  chasePaths = 0;
 
   constructor(private game: Game) {
     this.group.name = 'enemies';
@@ -403,6 +407,13 @@ export class EnemyManager {
           if (e.raid) {
             const wp = this.raidWaypoint(e, tp, dist, dt);
             if (wp) targetYaw = Math.atan2(wp.x - e.body.pos.x, wp.z - e.body.pos.z);
+          } else if (e.pathMode > 0 && !def.flying && !game.inDungeon) {
+            e.pathMode -= dt;
+            const wp = this.chaseWaypoint(e, tp, dist, dt);
+            if (wp) {
+              targetYaw = Math.atan2(wp.x - e.body.pos.x, wp.z - e.body.pos.z);
+              e.detour = 0;
+            }
           }
           if (e.cooldown <= 0) {
             const atk = this.chooseAttack(e, dist);
@@ -515,11 +526,19 @@ export class EnemyManager {
       if (moveSpeed > 0.5 && (e.state === 'chase' || e.state === 'wander' || e.state === 'return') && dt > 0) {
         const moved = Math.hypot(e.body.pos.x - e.lastPos.x, e.body.pos.z - e.lastPos.z);
         if (moved < moveSpeed * dt * 0.25) e.stuck += dt;
-        else e.stuck = Math.max(0, e.stuck - dt * 2);
+        else {
+          e.stuck = Math.max(0, e.stuck - dt * 2);
+          e.detours = Math.max(0, e.detours - dt * 0.25);
+        }
         if (e.stuck > 0.4 && e.detour <= 0) {
           e.detour = 0.9 + Math.random() * 0.6;
           e.detourSign = Math.random() < 0.5 ? -1 : 1;
           e.stuck = 0;
+          // a wild enemy that keeps bumping into walls starts planning a route
+          if (!e.raid && ++e.detours >= 2) {
+            e.pathMode = 8;
+            e.detours = 0;
+          }
         }
       }
       e.lastPos.copy(e.body.pos);
@@ -614,6 +633,26 @@ export class EnemyManager {
       e.pathI = 0;
       e.pathFor.copy(target);
       e.pathVersion = nav.version;
+    }
+    if (!e.path || !e.path.length) return null;
+    while (e.pathI < e.path.length - 1 && Math.hypot(e.path[e.pathI].x - e.body.pos.x, e.path[e.pathI].z - e.body.pos.z) < 1.0 + e.def.radius * 0.5) e.pathI++;
+    return e.path[e.pathI];
+  }
+
+  /** Wild enemies that got stuck: a short-lived local A* route to the player. */
+  private chaseWaypoint(e: Enemy, target: THREE.Vector3, dist: number, dt: number): THREE.Vector3 | null {
+    e.repath -= dt;
+    if (dist < 3 || dist > 40) return null;
+    const nav = this.game.localNav;
+    const stale = !e.path || e.pathFor.distanceToSquared(target) > 9;
+    if (stale && e.repath <= 0 && this.pathBudget > 0) {
+      this.pathBudget--;
+      this.chasePaths++;
+      e.repath = 0.8;
+      nav.prepareAround(e.body.pos, target);
+      e.path = nav.findPath(e.body.pos, target) ?? [];
+      e.pathI = 0;
+      e.pathFor.copy(target);
     }
     if (!e.path || !e.path.length) return null;
     while (e.pathI < e.path.length - 1 && Math.hypot(e.path[e.pathI].x - e.body.pos.x, e.path[e.pathI].z - e.body.pos.z) < 1.0 + e.def.radius * 0.5) e.pathI++;

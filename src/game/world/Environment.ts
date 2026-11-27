@@ -57,6 +57,8 @@ const WHITE = new THREE.Color(0xffffff);
 const STORM_TOP = new THREE.Color(0x4a5058);
 const STORM_HOR = new THREE.Color(0x868c94);
 const FLASH = new THREE.Color(0xdde6ff);
+const ASH_TOP = new THREE.Color(0x4a3a34);
+const ASH_HOR = new THREE.Color(0x8a6a58);
 
 /** Day/night cycle, sky dome, sun/moon light, hemisphere light and fog. */
 export class Environment {
@@ -82,6 +84,8 @@ export class Environment {
   overcast = 0;
   weatherFog = 0;
   flash = 0;
+  /** 1 on the ember isle: clouds are ash, reddish brown */
+  ashTint = 0;
   private black = new THREE.Color(0x040406);
 
   constructor(private scene: THREE.Scene) {
@@ -189,8 +193,10 @@ export class Environment {
     const oc = this.overcast;
     if (oc > 0.001) {
       const lum = 0.12 + 0.88 * this.daylight;
-      top.lerp(STORM_TOP.clone().multiplyScalar(lum), oc * 0.85);
-      hor.lerp(STORM_HOR.clone().multiplyScalar(lum), oc * 0.8);
+      const st = STORM_TOP.clone().lerp(ASH_TOP, this.ashTint).multiplyScalar(lum);
+      const sh = STORM_HOR.clone().lerp(ASH_HOR, this.ashTint).multiplyScalar(lum);
+      top.lerp(st, oc * 0.85);
+      hor.lerp(sh, oc * 0.8);
     }
     if (this.flash > 0) {
       top.lerp(FLASH, this.flash * 0.6);

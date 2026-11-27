@@ -36,14 +36,34 @@ export class NavGrid {
   private heap: number[] = [];
   private heapF: number[] = [];
 
-  constructor(private game: Game) {}
+  /** a local grid (around a chase) instead of the settlement grid */
+  private localKey = '';
+
+  constructor(
+    private game: Game,
+    private local = false,
+  ) {}
 
   get version() {
     return this.builtVersion;
   }
 
+  /** Local mode: make sure a grid covers both points (rebuilt when they move far or buildings change). */
+  prepareAround(a: THREE.Vector3, b: THREE.Vector3): boolean {
+    const cx = Math.round((a.x + b.x) / 2 / 6) * 6;
+    const cz = Math.round((a.z + b.z) / 2 / 6) * 6;
+    const R = Math.min(40, Math.max(18, Math.ceil(Math.hypot(a.x - b.x, a.z - b.z) / 2 / 6) * 6 + 12));
+    const key = `${cx},${cz},${R}`;
+    if (this.localKey === key && this.builtVersion === this.game.building.version && this.n > 0) return true;
+    this.build(cx, cz, R);
+    this.localKey = key;
+    this.builtVersion = this.game.building.version;
+    return true;
+  }
+
   /** Make sure the grid matches the current buildings / settlement size. Returns false if there is no settlement. */
   ensure(): boolean {
+    if (this.local) return this.n > 0;
     const st = this.game.state.settlement;
     const c = this.game.settlement.center();
     if (!st.founded || !c) return false;

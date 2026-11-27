@@ -141,6 +141,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   res.weather = await G(() => {
     const g = window.__eternum; const W = g.weather; const p = g.state.player;
     g.player.iframes = 1e9; // lightning is tested by its thunder, not by dying
+    g.debug.teleport(0, 150); __step(0.5); // home island weather (the ember isle shows ash and eruptions instead)
     W.set('rain', 1e9); __step(12);
     const rain = { raining: W.raining, wet: p.buffs.some((b) => b.id === 'wet'), growth: W.growthMult, overcast: +g.env.overcast.toFixed(2) };
     W.set('fog', 1e9); __step(14);
@@ -151,6 +152,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const storm = { thunder, sail: W.sailMult };
     W.set('clear', 1e9); __step(10);
     g.player.iframes = 0; g.debug.heal();
+    g.debug.teleport(52, 845); __step(0.5);
     return { rain, fog, storm, clearFar: Math.round(g.env.fog.far) };
   });
   if (SHOTS) {

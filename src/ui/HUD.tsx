@@ -7,7 +7,6 @@ import { xpToNext } from '../game/systems/Stats';
 import { Inv } from '../game/systems/Inventory';
 import type { GameEvents, NotifyKind } from '../game/core/Events';
 import { drawWorldMap } from './mapDraw';
-import { WEATHER_INFO } from '../game/world/Weather';
 import { SKILL_BY_ID, SKILL_KEY_LABELS, TREE_INFO } from '../game/data/skills';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label?: boolean }) {
@@ -165,8 +164,8 @@ function Minimap() {
         <span className="clock-icon">{game.env.isNight ? '☾' : '☀'}</span>
         {game.env.day}일차 · {hh}:{mm}
         {!game.inDungeon && (
-          <span className="weather-chip" title={WEATHER_INFO[game.weather.kind].desc}>
-            {WEATHER_INFO[game.weather.kind].icon} {WEATHER_INFO[game.weather.kind].name}
+          <span className="weather-chip" title={game.weather.info().desc}>
+            {game.weather.info().icon} {game.weather.info().name}
           </span>
         )}
       </div>

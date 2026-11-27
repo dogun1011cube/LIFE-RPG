@@ -12,6 +12,15 @@ export const WEATHER_INFO: Record<WeatherKind, { name: string; icon: string; des
   fog: { name: '안개', icon: '🌫', desc: '시야가 좁아짐 · 괴물이 늦게 알아챔' },
 };
 
+/** On the ember isle the same weather shows up as volcanic ash, smoke and eruptions. */
+export const WEATHER_INFO_EMBER: Record<WeatherKind, { name: string; icon: string; desc: string }> = {
+  clear: { name: '맑음', icon: '☀', desc: '' },
+  cloudy: { name: '흐림', icon: '☁', desc: '' },
+  rain: { name: '화산재', icon: '🌑', desc: '재가 내려 시야가 흐려짐 · 젖지는 않음' },
+  storm: { name: '화산 분출', icon: '🌋', desc: '용암탄이 떨어짐(불 피해, 화염 저항으로 반감) · 지붕 아래는 안전' },
+  fog: { name: '화산 연기', icon: '🌫', desc: '시야가 좁아짐 · 괴물이 늦게 알아챔' },
+};
+
 /** Markov transitions between weather kinds. */
 const NEXT: Record<WeatherKind, [WeatherKind, number][]> = {
   clear: [['clear', 0.5], ['cloudy', 0.3], ['rain', 0.1], ['fog', 0.1]],
@@ -38,7 +47,12 @@ interface Strike {
   y: number;
   t: number;
   ring: THREE.Mesh;
+  /** eruptions throw lava bombs instead of lightning */
+  bomb?: THREE.Mesh;
 }
+
+const bombGeo = new THREE.IcosahedronGeometry(0.55, 0);
+const bombMat = new THREE.MeshStandardMaterial({ color: 0xff6a1a, emissive: 0xff4a0a, emissiveIntensity: 2, roughness: 0.6 });
 
 /**
  * Weather: clear / cloudy / rain / storm / fog, changing every few in-game hours.
@@ -81,6 +95,21 @@ export class WeatherSystem {
     return this.kind === 'rain' || this.kind === 'storm';
   }
 
+  /** Which island's version of the weather the player sees. */
+  get local(): 'home' | 'ember' {
+    const p = this.game.player?.body.pos;
+    return p && this.game.terrain.islandId(p.x, p.z) === 'ember' ? 'ember' : 'home';
+  }
+
+  /** Rain that actually soaks you (ash on the ember isle does not). */
+  get wetNow(): boolean {
+    return this.raining && this.local === 'home';
+  }
+
+  info() {
+    return (this.local === 'ember' ? WEATHER_INFO_EMBER : WEATHER_INFO)[this.kind];
+  }
+
   /** Crop growth multiplier (rain waters the fields). */
   get growthMult(): number {
     return this.raining ? 1.5 : 1;
@@ -119,7 +148,7 @@ export class WeatherSystem {
   }
 
   private announce(kind: WeatherKind) {
-    const info = WEATHER_INFO[kind];
+    const info = (this.local === 'ember' ? WEATHER_INFO_EMBER : WEATHER_INFO)[kind];
     if (kind === 'clear' || kind === 'cloudy') this.game.events.emit('notify', { text: `날씨: ${info.icon} ${info.name}`, kind: 'info' });
     else this.game.events.emit('notify', { text: `날씨: ${info.icon} ${info.name} — ${info.desc}`, kind: 'info' });
   }
@@ -166,7 +195,9 @@ export class WeatherSystem {
     this.fog += (t.fog - this.fog) * k;
     this.flash = Math.max(0, this.flash - dt * 3);
     const env = game.env;
+    const ember = this.local === 'ember';
     env.overcast = indoorsWorld ? 0 : this.overcast;
+    env.ashTint = ember ? 1 : 0;
     env.weatherFog = indoorsWorld ? 0 : Math.max(this.fog, this.rain * 0.35);
     env.flash = this.flash;
 
@@ -175,10 +206,12 @@ export class WeatherSystem {
     const show = this.rain > 0.05 && !indoorsWorld;
     this.rainLines.visible = show;
     if (show) {
-      this.rainMat.opacity = 0.18 + this.rain * 0.32;
+      // ash drifts down slowly and grey; rain falls fast and blue-white
+      this.rainMat.color.setHex(ember ? 0x8a807a : 0xaab8cc);
+      this.rainMat.opacity = ember ? 0.3 + this.rain * 0.3 : 0.18 + this.rain * 0.32;
       this.rainLines.position.set(cam.x, cam.y - RAIN_BOX.h * 0.45, cam.z);
-      const fall = (18 + this.rain * 8) * dt;
-      const wind = (this.kind === 'storm' ? 4 : 1.2) * dt;
+      const fall = (ember ? 2.5 + this.rain * 2 : 18 + this.rain * 8) * dt;
+      const wind = (this.kind === 'storm' ? 4 : 1.2) * dt * (ember ? 0.5 : 1);
       const n = Math.floor(RAIN_COUNT * Math.min(1, this.rain * 1.2));
       const p = this.rainPos;
       for (let i = 0; i < RAIN_COUNT; i++) {
@@ -195,22 +228,31 @@ export class WeatherSystem {
       }
       (this.rainLines.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     }
-    game.audio.setRain(indoorsWorld ? 0 : this.rain);
+    game.audio.setRain(indoorsWorld || ember ? 0 : this.rain);
 
     // lightning
     if (this.kind === 'storm' && !indoorsWorld) {
       this.strikeTimer -= dt;
       if (this.strikeTimer <= 0) {
-        this.strikeTimer = 6 + Math.random() * 9;
-        this.lightning();
+        this.strikeTimer = ember ? 3 + Math.random() * 4 : 6 + Math.random() * 9;
+        if (ember) this.eruption();
+        else this.lightning();
       }
     }
     for (let i = this.strikes.length - 1; i >= 0; i--) {
       const s = this.strikes[i];
       s.t -= dt;
       (s.ring.material as THREE.MeshBasicMaterial).opacity = 0.5 + 0.4 * Math.sin(s.t * 20);
+      if (s.bomb) {
+        // the lava bomb falls along an arc onto the ring
+        const k = 1 - Math.max(0, s.t) / 1.5;
+        s.bomb.position.set(s.x + (1 - k) * 10, s.y + (1 - k * k) * 34, s.z + (1 - k) * 6);
+      }
       if (s.t <= 0) {
-        this.hit(s);
+        if (s.bomb) {
+          game.scene.remove(s.bomb);
+          this.lavaHit(s);
+        } else this.hit(s);
         game.scene.remove(s.ring);
         this.strikes.splice(i, 1);
       }
@@ -247,6 +289,43 @@ export class WeatherSystem {
       game.scene.add(ring);
       this.strikes.push({ x, z, y, t: 1.3, ring });
     } else this.thunder.push({ t: 0.6 + Math.random() * 1.6, vol: 0.5 });
+  }
+
+  /** Volcanic eruption: a lava bomb lands near the player after a telegraph. */
+  private eruption() {
+    const game = this.game;
+    this.flash = 0.35;
+    const pp = game.player.body.pos;
+    const near = Math.random() < 0.6;
+    const a = Math.random() * Math.PI * 2;
+    const d = near ? 3 + Math.random() * 12 : 25 + Math.random() * 40;
+    const x = pp.x + Math.cos(a) * d;
+    const z = pp.z + Math.sin(a) * d;
+    if (game.terrain.heightAt(x, z) < 0) return;
+    const y = game.terrain.heightAt(x, z) + 0.08;
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshBasicMaterial({ map: ringTexture(), color: 0xff7a3a, transparent: true, depthWrite: false, opacity: 0.8, toneMapped: false }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, y, z);
+    ring.renderOrder = 2;
+    game.scene.add(ring);
+    const bomb = new THREE.Mesh(bombGeo, bombMat);
+    game.scene.add(bomb);
+    this.strikes.push({ x, z, y, t: 1.5, ring, bomb });
+    if (Math.random() < 0.3) game.audio.play('slam', 0.3);
+  }
+
+  private lavaHit(s: Strike) {
+    const game = this.game;
+    game.audio.play('slam', 0.8);
+    game.particles.burst(new THREE.Vector3(s.x, s.y + 0.5, s.z), 0xff6a1a, 30, 6, 0.14);
+    game.particles.burst(new THREE.Vector3(s.x, s.y + 0.3, s.z), 0x3a302c, 16, 4, 0.2);
+    game.cameraRig.shake(0.25);
+    const c = game.state.counters;
+    c['eruption:bombs'] = (c['eruption:bombs'] ?? 0) + 1;
+    const pp = game.player.body.pos;
+    if (!game.shelter.indoors && Math.hypot(pp.x - s.x, pp.z - s.z) < 2.6 && Math.abs(pp.y - s.y) < 3) {
+      game.damagePlayer(28, new THREE.Vector3(s.x, s.y, s.z), { knock: 5, unblockable: true, fire: true });
+    }
   }
 
   private hit(s: Strike) {

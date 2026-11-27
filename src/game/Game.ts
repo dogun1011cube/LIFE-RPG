@@ -188,6 +188,8 @@ export class Game {
   civ!: CivSystem;
   defense!: DefenseSystem;
   nav!: NavGrid;
+  /** small grids built around a chase for wild enemies stuck behind walls */
+  localNav!: NavGrid;
   weather!: WeatherSystem;
   boats!: BoatSystem;
   ship!: TradeShipSystem;
@@ -299,6 +301,7 @@ export class Game {
     this.civ = new CivSystem(this);
     this.defense = new DefenseSystem(this);
     this.nav = new NavGrid(this);
+    this.localNav = new NavGrid(this, true);
     this.villagers = new VillagerManager(this);
     this.weather = new WeatherSystem(this);
     this.boats = new BoatSystem(this);
@@ -1451,7 +1454,7 @@ export class Game {
     // fire resistance (불씨 열매) halves fire damage; rain dampens fire creatures
     if (opts.fire || opts.source?.def.fire) {
       if (this.state.player.buffs.some((b) => b.id === 'fire_ward')) amount *= 0.5;
-      if (this.weather?.raining) amount *= 0.8;
+      if (this.weather?.wetNow) amount *= 0.8;
     }
     const head = pl.body.pos.clone().setY(pl.body.pos.y + 2);
     if (pl.iframes > 0) {
@@ -1658,7 +1661,7 @@ export class Game {
       }
     }
     // rain soaks you unless you are under a roof (or in the boat cabin-less... the boat does not help)
-    if (this.weather.raining && !this.shelter.indoors) {
+    if (this.weather.wetNow && !this.shelter.indoors && !this.boats.onBoard) {
       const w = p.buffs.find((b) => b.id === 'wet');
       if (w) w.time = 30;
       else p.buffs.push({ id: 'wet', time: 30 });

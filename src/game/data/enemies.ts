@@ -125,13 +125,13 @@ const list: EnemyDef[] = [
   },
   // ── 잿불 섬 ─────────────────────────────────────────────
   {
-    id: 'magma_slime', name: '마그마 슬라임', level: 7, model: 'magma_slime', hp: 70, damage: 13, defense: 3, speed: 1.4, chaseSpeed: 3.2,
+    id: 'magma_slime', name: '마그마 슬라임', level: 7, model: 'magma_slime', hp: 95, damage: 16, defense: 3, speed: 1.4, chaseSpeed: 3.2,
     radius: 0.6, height: 0.9, scale: 1, aggroRange: 11, leash: 30, cooldown: 1.1, poise: 0, xp: 32, fire: true,
     attacks: [{ kind: 'lunge', range: 3, windup: 0.55, active: 0.35, recover: 0.7, mult: 1, lungeSpeed: 8 }],
     drops: [{ item: 'charcoal', chance: 0.7, min: 1, max: 2 }, { item: 'ember_fruit', chance: 0.25, min: 1, max: 1 }],
   },
   {
-    id: 'ash_wolf', name: '잿빛 늑대', level: 9, model: 'ash_wolf', hp: 120, damage: 18, defense: 5, speed: 2.3, chaseSpeed: 6.8,
+    id: 'ash_wolf', name: '잿빛 늑대', level: 9, model: 'ash_wolf', hp: 165, damage: 22, defense: 5, speed: 2.3, chaseSpeed: 6.8,
     radius: 0.6, height: 1.0, scale: 1.1, aggroRange: 16, leash: 40, cooldown: 0.95, poise: 0, xp: 58,
     attacks: [
       { kind: 'melee', range: 2.1, windup: 0.38, active: 0.15, recover: 0.45, mult: 1, arc: 80, weight: 1 },
@@ -140,7 +140,7 @@ const list: EnemyDef[] = [
     drops: [{ item: 'wolf_pelt', chance: 0.9, min: 1, max: 2 }, { item: 'raw_meat', chance: 0.8, min: 1, max: 2 }],
   },
   {
-    id: 'lava_golem', name: '용암 골렘', level: 11, model: 'lava_golem', hp: 320, damage: 30, defense: 12, speed: 1.1, chaseSpeed: 2.6,
+    id: 'lava_golem', name: '용암 골렘', level: 11, model: 'lava_golem', hp: 420, damage: 34, defense: 12, speed: 1.1, chaseSpeed: 2.6,
     radius: 1.1, height: 2.4, scale: 1.05, aggroRange: 12, leash: 35, cooldown: 1.5, poise: 30, xp: 130, fire: true,
     attacks: [
       { kind: 'slam', range: 3.0, windup: 1.0, active: 0.2, recover: 1.1, mult: 1.1, aoe: 3.6, weight: 1 },
@@ -149,13 +149,13 @@ const list: EnemyDef[] = [
     drops: [{ item: 'iron_ore', chance: 1, min: 2, max: 4 }, { item: 'obsidian', chance: 0.3, min: 1, max: 1 }, { item: 'charcoal', chance: 0.6, min: 1, max: 3 }],
   },
   {
-    id: 'fire_wisp', name: '불꽃 정령', level: 9, model: 'fire_wisp', hp: 75, damage: 17, defense: 0, speed: 2.0, chaseSpeed: 3.8,
+    id: 'fire_wisp', name: '불꽃 정령', level: 9, model: 'fire_wisp', hp: 95, damage: 20, defense: 0, speed: 2.0, chaseSpeed: 3.8,
     radius: 0.5, height: 1.0, scale: 1, aggroRange: 22, leash: 50, cooldown: 1.3, poise: 0, xp: 52, nightOnly: true, flying: true, keepDistance: 8, fire: true,
     attacks: [{ kind: 'ranged', range: 16, windup: 0.8, active: 0.1, recover: 0.9, mult: 1, projSpeed: 12, color: 0xff7a2a }],
     drops: [{ item: 'ember_fruit', chance: 0.5, min: 1, max: 2 }, { item: 'gloom_essence', chance: 0.3, min: 1, max: 1 }],
   },
   {
-    id: 'lava_titan', name: '용암 거신', level: 13, model: 'titan', bossTitle: '불의 산 깊은 곳에서 깨어난 자', hp: 1600, damage: 32, defense: 12, speed: 1.5, chaseSpeed: 3.2,
+    id: 'lava_titan', name: '용암 거신', level: 13, model: 'titan', bossTitle: '불의 산 깊은 곳에서 깨어난 자', hp: 1600, damage: 36, defense: 12, speed: 1.5, chaseSpeed: 3.2,
     radius: 1.9, height: 4.6, scale: 1, aggroRange: 30, leash: 30, cooldown: 1.15, poise: 70, xp: 1000, boss: true, fire: true,
     attacks: [
       { kind: 'slam', range: 4.8, windup: 1.05, active: 0.2, recover: 1.0, mult: 1.2, aoe: 5.0, weight: 1.2 },
@@ -173,7 +173,7 @@ const list: EnemyDef[] = [
   },
   // ── 용암 동굴 (dungeon) ─────────────────────────────────
   {
-    id: 'cinder_skeleton', name: '불탄 해골', level: 10, model: 'cinder', hp: 140, damage: 21, defense: 8, speed: 1.6, chaseSpeed: 4.4,
+    id: 'cinder_skeleton', name: '불탄 해골', level: 10, model: 'cinder', hp: 190, damage: 24, defense: 8, speed: 1.6, chaseSpeed: 4.4,
     radius: 0.5, height: 1.8, scale: 1.05, aggroRange: 14, leash: 30, cooldown: 1.05, poise: 18, xp: 70, dungeon: true, fire: true,
     attacks: [
       { kind: 'melee', range: 2.3, windup: 0.5, active: 0.15, recover: 0.5, mult: 1, arc: 95, weight: 1 },
@@ -182,7 +182,7 @@ const list: EnemyDef[] = [
     drops: [{ item: 'bone', chance: 0.8, min: 1, max: 3 }, { item: 'charcoal', chance: 0.6, min: 1, max: 2 }, { item: 'iron_ore', chance: 0.25, min: 1, max: 2 }],
   },
   {
-    id: 'obsidian_sentinel', name: '흑요석 파수꾼', level: 12, model: 'sentinel', bossTitle: '용암 동굴의 문지기', hp: 1250, damage: 28, defense: 14, speed: 1.4, chaseSpeed: 3.0,
+    id: 'obsidian_sentinel', name: '흑요석 파수꾼', level: 12, model: 'sentinel', bossTitle: '용암 동굴의 문지기', hp: 1400, damage: 30, defense: 14, speed: 1.4, chaseSpeed: 3.0,
     radius: 1.4, height: 3.4, scale: 1, aggroRange: 28, leash: 40, cooldown: 1.2, poise: 55, xp: 800, boss: true, dungeon: true,
     attacks: [
       { kind: 'slam', range: 3.8, windup: 1.0, active: 0.2, recover: 1.0, mult: 1.15, aoe: 4.4, weight: 1.3 },
