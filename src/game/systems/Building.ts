@@ -7,7 +7,7 @@ import type { PieceState } from '../state/types';
 import type { Collider, BoxCollider } from '../world/Colliders';
 import { Inv } from './Inventory';
 import { getTemplate, instantiate, ghostObject, ghostMaterial, worldColliders, createCrops, type PieceObject } from './BuildMeshes';
-import { SETTLEMENT_RADIUS } from '../data/village';
+import { settlementRadius } from '../data/village';
 import type { Game } from '../Game';
 import type { LightSource } from '../world/Landmarks';
 import { computeStability, predictStability, touches, MIN_STABILITY, type StabNode } from './Stability';
@@ -39,7 +39,7 @@ export interface Placement {
 }
 
 export type PaletteCategory = BuildCategory | 'blueprint';
-const CATEGORIES: BuildCategory[] = ['structure', 'stone', 'marble', 'fortress', 'path', 'utility', 'decor'];
+const CATEGORIES: BuildCategory[] = ['structure', 'stone', 'marble', 'fortress', 'path', 'utility', 'village', 'city', 'decor'];
 const EDGE_HEIGHT: Record<string, number> = { wall: L, doorway: L, window: L, fence: 1.15, gable: 1.25, door: 2.1, castle_wall: 5 };
 const MATERIAL_ORDER = ['wood', 'stone', 'marble'];
 
@@ -67,6 +67,8 @@ export class BuildSystem {
   active = false;
   selected = 'wood_foundation';
   category: PaletteCategory = 'structure';
+  /** bumps whenever pieces are added / removed (navigation grid rebuilds) */
+  version = 0;
   rotation = 0;
   heightOffset = 0;
   gridSnap = true;
@@ -246,6 +248,7 @@ export class BuildSystem {
   }
 
   recomputeStability() {
+    this.version++;
     const s = computeStability(this.stabNodes(), this.neighbors);
     this.stability.clear();
     for (const [k, v] of s) this.stability.set(k, v);
@@ -574,9 +577,10 @@ export class BuildSystem {
     if (clash) return { valid: false, reason: clash };
     // Settlement rules: one town hall; village buildings belong inside the settlement radius
     if (def.id === 'town_hall' && [...this.pieces.values()].some((p) => p.def.id === 'town_hall')) return { valid: false, reason: '마을 회관은 하나만 지을 수 있습니다' };
-    if (def.category === 'village' && def.id !== 'town_hall') {
+    if ((def.category === 'village' || def.category === 'city') && def.id !== 'town_hall') {
       const hall = [...this.pieces.values()].find((p) => p.def.id === 'town_hall');
-      if (!hall || (hall.state.x - x) ** 2 + (hall.state.z - z) ** 2 > SETTLEMENT_RADIUS ** 2) return { valid: false, reason: `마을 회관 반경 ${SETTLEMENT_RADIUS}m 안에만 지을 수 있습니다` };
+      const R = settlementRadius(this.game.state.settlement.tier);
+      if (!hall || (hall.state.x - x) ** 2 + (hall.state.z - z) ** 2 > R ** 2) return { valid: false, reason: `마을 회관 반경 ${R}m 안에만 지을 수 있습니다` };
     }
     // Door must sit inside a doorway
     if (def.shape === 'door') {
@@ -768,11 +772,11 @@ export class BuildSystem {
     this.game.audio.play('click');
   }
 
-  toggleDoor(p: PlacedPiece) {
+  toggleDoor(p: PlacedPiece, silent = false) {
     p.state.open = !p.state.open;
     if (p.state.open) for (const c of p.doorColliders) this.game.colliders.remove(c);
     else for (const c of p.doorColliders) this.game.colliders.add(c);
-    this.game.audio.play('door');
+    if (!silent) this.game.audio.play('door');
   }
 
   // ── Blueprints ──────────────────────────────────────────

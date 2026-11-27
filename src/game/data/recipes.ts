@@ -12,7 +12,8 @@ export type UnlockRule =
   | { type: 'level'; level: number }
   | { type: 'quest'; quest: string } // quest completed
   | { type: 'lore'; id: string } // lore tablet read
-  | { type: 'settlement'; level: number }; // settlement tier reached
+  | { type: 'settlement'; level: number } // settlement tier reached
+  | { type: 'tech'; tech: string }; // technology researched
 
 export interface RecipeDef {
   id: string;
@@ -57,6 +58,8 @@ export const RECIPES: RecipeDef[] = [
   { id: 'r_crystal_blade', output: 'crystal_blade', qty: 1, inputs: [{ item: 'crystal', qty: 4 }, { item: 'copper_ingot', qty: 4 }, { item: 'leather', qty: 2 }], station: 'workbench', category: 'weapons', unlock: [{ type: 'item', item: 'crystal' }, { type: 'level', level: 6 }], xp: 80 },
   { id: 'r_bread', output: 'bread', qty: 1, inputs: [{ item: 'wheat', qty: 3 }], station: 'campfire', category: 'consumables', unlock: [{ type: 'item', item: 'wheat' }], xp: 3 },
   { id: 'r_stone_brick', output: 'stone_brick', qty: 2, inputs: [{ item: 'stone', qty: 3 }], station: 'workbench', category: 'materials', unlock: [{ type: 'level', level: 4 }], xp: 2 },
+  { id: 'r_plank', output: 'plank', qty: 1, inputs: [{ item: 'wood', qty: 2 }], station: 'workbench', category: 'materials', unlock: [{ type: 'tech', tech: 't_carpentry' }], xp: 2 },
+  { id: 'r_tool_kit', output: 'tool_kit', qty: 1, inputs: [{ item: 'copper_ingot', qty: 1 }, { item: 'plank', qty: 2 }], station: 'workbench', category: 'materials', unlock: [{ type: 'tech', tech: 't_toolmaking' }], xp: 8 },
   { id: 'r_bone_charm', output: 'bone_charm', qty: 1, inputs: [{ item: 'bone', qty: 6 }, { item: 'fiber', qty: 4 }, { item: 'slime_gel', qty: 2 }], station: 'workbench', category: 'armor', unlock: [{ type: 'item', item: 'bone' }], xp: 30 },
   { id: 'r_mana_potion', output: 'mana_potion', qty: 1, inputs: [{ item: 'gloom_essence', qty: 1 }, { item: 'slime_gel', qty: 2 }, { item: 'berry', qty: 2 }], station: 'workbench', category: 'consumables', unlock: [{ type: 'item', item: 'gloom_essence' }], xp: 10 },
   { id: 'r_warden_amulet', output: 'warden_amulet', qty: 1, inputs: [{ item: 'warden_core', qty: 1 }, { item: 'copper_ingot', qty: 4 }, { item: 'crystal', qty: 2 }], station: 'workbench', category: 'armor', unlock: [{ type: 'item', item: 'warden_core' }], xp: 120 },

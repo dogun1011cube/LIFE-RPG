@@ -16,6 +16,8 @@ export interface Projectile {
   owner: 'enemy' | 'player';
   /** homing target for player projectiles */
   target?: { body: { pos: THREE.Vector3 }; removed?: boolean };
+  /** fired by a town defence (archer tower) instead of the player */
+  source?: 'tower';
 }
 
 const coreGeo = new THREE.SphereGeometry(0.18, 10, 8);
@@ -32,7 +34,7 @@ export class ProjectileSystem {
     this.group.name = 'projectiles';
   }
 
-  spawn(pos: THREE.Vector3, vel: THREE.Vector3, damage: number, color: number, opts: { homing?: number; slow?: boolean; life?: number; owner?: 'enemy' | 'player'; target?: Projectile['target'] } = {}) {
+  spawn(pos: THREE.Vector3, vel: THREE.Vector3, damage: number, color: number, opts: { homing?: number; slow?: boolean; life?: number; owner?: 'enemy' | 'player'; target?: Projectile['target']; source?: 'tower' } = {}) {
     const g = new THREE.Group();
     const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color, toneMapped: false }));
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -40,7 +42,7 @@ export class ProjectileSystem {
     g.add(core, glow);
     g.position.copy(pos);
     this.group.add(g);
-    this.list.push({ mesh: g, pos: g.position, vel: vel.clone(), damage, life: opts.life ?? 4, radius: 0.35, homing: opts.homing ?? 0, slow: !!opts.slow, color, owner: opts.owner ?? 'enemy', target: opts.target });
+    this.list.push({ mesh: g, pos: g.position, vel: vel.clone(), damage, life: opts.life ?? 4, radius: 0.35, homing: opts.homing ?? 0, slow: !!opts.slow, color, owner: opts.owner ?? 'enemy', target: opts.target, source: opts.source });
   }
 
   clear() {

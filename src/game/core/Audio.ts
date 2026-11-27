@@ -27,7 +27,9 @@ export type SfxName =
   | 'slam'
   | 'door'
   | 'treefall'
-  | 'boss';
+  | 'boss'
+  | 'bell'
+  | 'heal';
 
 export class AudioSys {
   private ctx: AudioContext | null = null;
@@ -224,6 +226,20 @@ export class AudioSys {
       case 'boss':
         this.tone(55, 1.2, 'sawtooth', 0.15 * v, 0, 40);
         this.tone(82, 1.2, 'sawtooth', 0.1 * v, 0.1, 60);
+        break;
+      case 'bell':
+        // alarm bell: inharmonic partials, struck three times
+        for (let k = 0; k < 3; k++) {
+          for (const [f, vol] of [
+            [660, 0.16],
+            [1584, 0.07],
+            [2330, 0.04],
+          ] as [number, number][])
+            this.tone(f, 1.1, 'sine', vol * v, k * 0.42);
+        }
+        break;
+      case 'heal':
+        [523, 784, 1046].forEach((f, i) => this.tone(f, 0.4, 'sine', 0.1 * v, i * 0.07));
         break;
     }
   }

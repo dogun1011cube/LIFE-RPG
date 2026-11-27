@@ -1,7 +1,7 @@
 import type { Cost, StationId, UnlockRule } from './recipes';
 
 export type SnapMode = 'cell' | 'edge' | 'corner' | 'free';
-export type BuildCategory = 'structure' | 'stone' | 'marble' | 'fortress' | 'path' | 'utility' | 'village' | 'decor';
+export type BuildCategory = 'structure' | 'stone' | 'marble' | 'fortress' | 'path' | 'utility' | 'village' | 'city' | 'decor';
 export type BuildShape =
   | 'foundation'
   | 'floor'
@@ -37,7 +37,16 @@ export type BuildShape =
   | 'mine_shaft'
   | 'warehouse'
   | 'market_stall'
-  | 'well';
+  | 'well'
+  | 'research_desk'
+  | 'sawmill'
+  | 'smelter'
+  | 'smithy'
+  | 'guard_post'
+  | 'archer_tower'
+  | 'house_wood'
+  | 'house_stone'
+  | 'fountain';
 
 export interface BuildableDef {
   id: string;
@@ -50,7 +59,9 @@ export interface BuildableDef {
   cost: Cost[];
   unlock: UnlockRule[];
   station?: StationId;
-  interact?: 'door' | 'chest' | 'bed' | 'station' | 'village' | 'farm';
+  interact?: 'door' | 'chest' | 'bed' | 'station' | 'village' | 'farm' | 'civ';
+  /** villagers who can live here (beds = 1, houses more) */
+  housing?: number;
   storage?: number;
   light?: { color: number; intensity: number; distance: number };
   /** Night creatures will not spawn within this radius. */
@@ -68,6 +79,7 @@ export const BUILD_CATEGORY_NAME: Record<BuildCategory, string> = {
   fortress: '요새',
   path: '길·다리',
   village: '마을',
+  city: '도시',
   utility: '시설',
   decor: '장식',
 };
@@ -77,6 +89,7 @@ const STONE: UnlockRule[] = [{ type: 'level', level: 3 }];
 const MARBLE: UnlockRule[] = [{ type: 'item', item: 'stone_brick' }, { type: 'level', level: 5 }];
 const FORT: UnlockRule[] = [{ type: 'item', item: 'stone_brick' }];
 const SETTLED: UnlockRule[] = [{ type: 'settlement', level: 1 }];
+const tech = (id: string): UnlockRule[] => [{ type: 'settlement', level: 1 }, { type: 'tech', tech: id }];
 
 export const BUILDABLES: BuildableDef[] = [
   // Wood structure
@@ -118,7 +131,7 @@ export const BUILDABLES: BuildableDef[] = [
   { id: 'campfire', name: '모닥불', desc: '고기를 굽고 어둠을 밝힌다. 불빛 근처에는 밤의 괴물이 나타나지 않는다.', category: 'utility', shape: 'campfire', material: 'stone', snap: 'free', cost: [{ item: 'wood', qty: 5 }, { item: 'stone', qty: 6 }], unlock: START, station: 'campfire', interact: 'station', light: { color: 0xff8a3a, intensity: 18, distance: 16 }, safeRadius: 22 },
   { id: 'furnace', name: '화로', desc: '광석을 제련하는 화로.', category: 'utility', shape: 'furnace', material: 'stone', snap: 'free', cost: [{ item: 'stone', qty: 15 }, { item: 'wood', qty: 4 }], unlock: [{ type: 'item', item: 'copper_ore' }], station: 'furnace', interact: 'station', light: { color: 0xff6a2a, intensity: 10, distance: 10 }, safeRadius: 16 },
   { id: 'chest', comfort: true, name: '보관함', desc: '아이템 24칸을 보관한다.', category: 'utility', shape: 'chest', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 12 }, { item: 'fiber', qty: 2 }], unlock: START, interact: 'chest', storage: 24 },
-  { id: 'bed', comfort: true, name: '침대', desc: '부활 지점을 설정한다. 밤에는 잠을 자서 아침까지 시간을 보낼 수 있다.', category: 'utility', shape: 'bed', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 10 }, { item: 'fiber', qty: 12 }], unlock: START, interact: 'bed', safeRadius: 14 },
+  { id: 'bed', comfort: true, name: '침대', desc: '부활 지점을 설정한다. 밤에는 잠을 자서 아침까지 시간을 보낼 수 있다.', category: 'utility', shape: 'bed', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 10 }, { item: 'fiber', qty: 12 }], unlock: START, interact: 'bed', safeRadius: 14, housing: 1 },
   { id: 'torch', name: '횃불', desc: '주변을 밝히는 횃불. 불빛 근처에는 밤의 괴물이 나타나지 않는다.', category: 'utility', shape: 'torch', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 2 }, { item: 'fiber', qty: 1 }], unlock: START, light: { color: 0xffa04a, intensity: 10, distance: 13 }, safeRadius: 18 },
   // Village
   { id: 'town_hall', name: '마을 회관', desc: '정착지를 세운다. 회관 반경 45m 안의 침대에 주민이 살고, 일터에서 일한다. [E]로 마을 관리 창을 연다. 하나만 지을 수 있다.', category: 'village', shape: 'town_hall', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 40 }, { item: 'stone', qty: 20 }, { item: 'fiber', qty: 10 }], unlock: [{ type: 'quest', quest: 'q_shelter' }], interact: 'village', light: { color: 0xffc070, intensity: 12, distance: 16 }, safeRadius: 30, reach: 4.4 },
@@ -128,6 +141,16 @@ export const BUILDABLES: BuildableDef[] = [
   { id: 'mine_shaft', name: '광산 갱도', desc: '광부의 일터. 돌과 가끔 구리 광석을 생산한다.', category: 'village', shape: 'mine_shaft', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 16 }, { item: 'stone', qty: 20 }], unlock: SETTLED },
   { id: 'market_stall', name: '시장 가판대', desc: '상인의 일터. 상인이 있으면 은화로 물건을 사고팔 수 있다.', category: 'village', shape: 'market_stall', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 20 }, { item: 'fiber', qty: 12 }, { item: 'copper_ingot', qty: 2 }], unlock: [{ type: 'settlement', level: 2 }], interact: 'village', reach: 3.2 },
   { id: 'well', name: '우물', desc: '마을의 쉼터. 주민 행복도와 집의 안락도를 높인다.', category: 'village', shape: 'well', material: 'stone', snap: 'free', cost: [{ item: 'stone', qty: 20 }, { item: 'wood', qty: 4 }], unlock: SETTLED, comfort: true },
+  // City (PHASE 5)
+  { id: 'research_desk', name: '연구소', desc: '학자의 일터. 연구 점수를 모아 기술을 연구한다. 근처(6m)의 책장 하나마다 연구가 빨라진다(최대 2개). [E]로 문명 창을 연다.', category: 'city', shape: 'research_desk', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 24 }, { item: 'stone', qty: 10 }, { item: 'fiber', qty: 10 }, { item: 'copper_ingot', qty: 1 }], unlock: [{ type: 'settlement', level: 2 }], interact: 'civ', light: { color: 0xffc880, intensity: 6, distance: 9 }, reach: 2.8 },
+  { id: 'sawmill', name: '제재소', desc: '목수의 일터. 창고의 목재로 판자를 만든다.', category: 'city', shape: 'sawmill', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 30 }, { item: 'stone', qty: 8 }, { item: 'copper_ingot', qty: 1 }], unlock: tech('t_carpentry') },
+  { id: 'smelter', name: '용광로', desc: '제련공의 일터. 창고의 구리 광석과 목재로 구리 주괴를 만든다.', category: 'city', shape: 'smelter', material: 'stone', snap: 'free', cost: [{ item: 'stone', qty: 30 }, { item: 'stone_brick', qty: 6 }, { item: 'wood', qty: 6 }], unlock: tech('t_smelting'), light: { color: 0xff6a2a, intensity: 12, distance: 11 }, safeRadius: 16 },
+  { id: 'smithy', name: '대장간', desc: '대장장이의 일터. 구리 주괴와 판자로 도구 꾸러미를 만든다.', category: 'city', shape: 'smithy', material: 'wood', snap: 'free', cost: [{ item: 'plank', qty: 12 }, { item: 'stone', qty: 16 }, { item: 'copper_ingot', qty: 4 }], unlock: tech('t_toolmaking'), light: { color: 0xff7a3a, intensity: 8, distance: 9 } },
+  { id: 'guard_post', name: '경비 초소', desc: '경비병의 일터. 경비병은 초소 주변을 지키고 습격해 온 괴물과 싸운다. 주변의 밤 괴물 발생도 막는다.', category: 'city', shape: 'guard_post', material: 'wood', snap: 'free', cost: [{ item: 'plank', qty: 10 }, { item: 'wood', qty: 10 }, { item: 'copper_ingot', qty: 2 }], unlock: tech('t_militia'), light: { color: 0xffa04a, intensity: 10, distance: 13 }, safeRadius: 22 },
+  { id: 'archer_tower', name: '궁수탑', desc: '반경 24m 안의 괴물에게 자동으로 화살을 쏘는 방어탑.', category: 'city', shape: 'archer_tower', material: 'wood', snap: 'free', cost: [{ item: 'plank', qty: 20 }, { item: 'stone_brick', qty: 10 }, { item: 'copper_ingot', qty: 3 }], unlock: tech('t_fortification'), light: { color: 0xffa04a, intensity: 12, distance: 14 }, safeRadius: 26 },
+  { id: 'house_wood', name: '목조 주택', desc: '주민 2명이 사는 집. 지붕과 가구가 갖춰져 있어 주민이 좋아한다. 밤에는 창에 불이 켜진다.', category: 'city', shape: 'house_wood', material: 'wood', snap: 'free', cost: [{ item: 'plank', qty: 14 }, { item: 'wood', qty: 12 }, { item: 'stone', qty: 6 }, { item: 'fiber', qty: 8 }], unlock: tech('t_housing'), housing: 2 },
+  { id: 'house_stone', name: '석조 주택', desc: '주민 4명이 사는 2층 돌집. 매우 안락하다.', category: 'city', shape: 'house_stone', material: 'stone', snap: 'free', cost: [{ item: 'stone_brick', qty: 18 }, { item: 'plank', qty: 12 }, { item: 'stone', qty: 12 }], unlock: tech('t_masonry'), housing: 4 },
+  { id: 'fountain', name: '분수 광장', desc: '도시의 중심이 되는 분수. 주민 행복도를 크게 높인다. "도시" 단계의 조건.', category: 'city', shape: 'fountain', material: 'marble', snap: 'free', cost: [{ item: 'stone_brick', qty: 24 }, { item: 'copper_ingot', qty: 2 }, { item: 'crystal', qty: 1 }], unlock: tech('t_architecture'), comfort: true },
   // Decor
   { id: 'table', name: '나무 탁자', desc: '소박한 탁자. 집의 안락도를 높인다.', category: 'decor', shape: 'table', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 6 }], unlock: START, comfort: true },
   { id: 'chair', name: '나무 의자', desc: '소박한 의자. 집의 안락도를 높인다.', category: 'decor', shape: 'chair', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 4 }], unlock: START, comfort: true },

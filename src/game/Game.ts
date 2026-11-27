@@ -38,12 +38,16 @@ import { SKILLS, SKILL_BY_ID, SKILL_KEYS } from './data/skills';
 import { Dungeon, DUNGEON_ORIGIN, type DungeonInteractable } from './world/Dungeon';
 import { rank, SKILL_POINTS_PER_LEVEL } from './systems/Stats';
 import type { Projectile } from './entities/Projectiles';
-import { SettlementSystem, freshSettlement } from './systems/Settlement';
+import { SettlementSystem, freshSettlement, migrateSettlement } from './systems/Settlement';
 import { VillagerManager } from './entities/Villagers';
+import { CivSystem } from './systems/Civilization';
+import { DefenseSystem } from './systems/Defense';
+import { NavGrid } from './systems/NavGrid';
+import { setWindowGlow } from './systems/BuildMeshes';
 
 export type Screen = 'loading' | 'menu' | 'playing';
 export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint' | 'villager';
-export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map' | 'village';
+export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map' | 'village' | 'civ';
 
 export interface Interaction {
   label: string;
@@ -168,6 +172,9 @@ export class Game {
   dungeon!: Dungeon;
   settlement!: SettlementSystem;
   villagers!: VillagerManager;
+  civ!: CivSystem;
+  defense!: DefenseSystem;
+  nav!: NavGrid;
   /** Shelter state, updated once per second: under a roof, near a fire, comfort from furniture. */
   shelter = { indoors: false, heat: false, comfort: 0 };
   private shelterTimer = 0;
@@ -271,6 +278,9 @@ export class Game {
     this.dungeon = new Dungeon(this.colliders);
     this.scene.add(this.dungeon.group);
     this.settlement = new SettlementSystem(this);
+    this.civ = new CivSystem(this);
+    this.defense = new DefenseSystem(this);
+    this.nav = new NavGrid(this);
     this.villagers = new VillagerManager(this);
     this.scene.add(this.villagers.group);
     await this.step('지도를 그리는 중...', 0.9);
@@ -389,7 +399,7 @@ export class Game {
         mana: sp.mana ?? 40,
       },
       quests: { ...fresh.quests, ...file.state.quests },
-      settlement: { ...freshSettlement(), ...(file.state.settlement ?? {}) },
+      settlement: migrateSettlement(file.state.settlement),
     };
     if (this.state.player.inventory.length < INVENTORY_SIZE) {
       while (this.state.player.inventory.length < INVENTORY_SIZE) this.state.player.inventory.push(null);
@@ -424,6 +434,7 @@ export class Game {
     this.resources.applyDepleted(st.depletedNodes);
     this.building.setActive(false);
     this.building.load(st.pieces);
+    this.defense.clear();
     this.villagers.sync();
     this.discovery.reset();
     this.discovery.loadExplored(st.explored);
@@ -481,6 +492,7 @@ export class Game {
   quitToMenu() {
     if (!this.player.dead) this.saveGame(true);
     this.villagers.clear();
+    this.defense.clear();
     this.building.setActive(false);
     this.enemies.clear();
     this.projectiles.clear();
@@ -636,7 +648,9 @@ export class Game {
       this.building.update(simDt, pp);
       this.updateShelter(simDt);
       this.settlement.update(simDt);
+      this.defense.update(simDt);
       this.villagers.update(simDt);
+      setWindowGlow(this.env.isNight ? 1 : 0);
       this.resources.update(simDt, this.state.playTime, pp, this.quality.viewDistance);
       this.env.update(simDt, pp, true);
       this.questCheckTimer -= simDt;
@@ -700,6 +714,7 @@ export class Game {
     else if (i.wasPressed('KeyM')) this.openMenu('map');
     else if (i.wasPressed('KeyK')) this.openMenu('skills');
     else if (i.wasPressed('KeyH')) this.openMenu('village');
+    else if (i.wasPressed('KeyL')) this.openMenu('civ');
     else if (i.wasPressed('KeyB') && this.inDungeon) this.events.emit('notify', { text: '묘소 안에서는 건축할 수 없습니다', kind: 'warn' });
     else if (i.wasPressed('KeyB') && (this.ui.panel === null || this.ui.panel === 'menu')) {
       if (this.ui.panel) this.closePanel(true);
@@ -790,7 +805,8 @@ export class Game {
     const vil = this.villagers.nearest(p, 2.4);
     if (vil) {
       const vp = new THREE.Vector3(vil.x, vil.y, vil.z);
-      consider(vp.distanceTo(p) - 0.7, { label: `대화: ${vil.name}`, key: 'E', kind: 'piece', run: () => this.talkTo(vil.id) });
+      if (vil.down) consider(vp.distanceTo(p) - 0.9, { label: `일으켜 세우기: ${vil.name}`, key: 'E', kind: 'piece', run: () => this.villagers.revive(vil.id) });
+      else consider(vp.distanceTo(p) - 0.7, { label: `대화: ${vil.name}`, key: 'E', kind: 'piece', run: () => this.talkTo(vil.id) });
     }
     // Landmarks
     for (const lm of this.landmarks.interactables) {
@@ -831,6 +847,8 @@ export class Game {
         return { label: this.env.isNight ? '잠자기 (아침까지)' : '부활 지점 설정', key: 'E', kind: 'piece', run: () => this.useBed(piece) };
       case 'village':
         return { label: def.id === 'town_hall' ? '마을 관리' : def.id === 'warehouse' ? '창고 열기' : '시장 열기', key: 'E', kind: 'piece', run: () => this.openMenu('village') };
+      case 'civ':
+        return { label: '연구소 (문명)', key: 'E', kind: 'piece', run: () => this.openMenu('civ') };
       case 'farm': {
         const g = piece.state.growth ?? 0;
         return { label: g >= 1 ? '밀 수확' : `밭 살펴보기 (${Math.floor(g * 100)}%)`, key: 'E', kind: 'piece', run: () => this.settlement.harvestPlot(piece) };
@@ -1113,6 +1131,8 @@ export class Game {
         return st.loreRead.includes(r.id);
       case 'settlement':
         return st.settlement.founded && st.settlement.tier >= r.level;
+      case 'tech':
+        return st.settlement.research.done.includes(r.tech);
     }
   }
 
@@ -1289,10 +1309,11 @@ export class Game {
     }
   }
 
-  private onEnemyKilled(e: Enemy) {
+  private onEnemyKilled(e: Enemy, xpMult = 1) {
     const st = this.state;
     const def = e.def;
     st.counters[`kill:${def.id}`] = (st.counters[`kill:${def.id}`] ?? 0) + 1;
+    if (e.raid) st.counters['kill:raider'] = (st.counters['kill:raider'] ?? 0) + 1;
     this.audio.play('death');
     const pos = e.body.pos.clone();
     pos.y += 0.8 + (def.flying ? 1 : 0);
@@ -1302,7 +1323,7 @@ export class Game {
       const qty = d.min + Math.floor(Math.random() * (d.max - d.min + 1));
       if (qty > 0) this.pickups.spawn(d.item, qty, pos);
     }
-    this.gainXp(def.xp, def.name);
+    this.gainXp(Math.round(def.xp * xpMult), def.name);
     if (def.id === 'warden') {
       st.bossDefeated++;
       this.events.emit('banner', { title: '수호자를 쓰러뜨렸다!', subtitle: '섬이 당신을 주인으로 인정했다', kind: 'boss' });
@@ -1661,6 +1682,22 @@ export class Game {
     if (e.hp <= 0) this.onEnemyKilled(e);
   }
 
+  /** Damage dealt by the town (guards, archer towers): no crits, half experience for kills. */
+  damageEnemyBy(e: Enemy, raw: number, knock: THREE.Vector3) {
+    if (e.state === 'dead' || e.removed) return;
+    const final = Math.max(1, Math.round(mitigate(raw * (0.9 + Math.random() * 0.2), e.def.defense)));
+    e.hp -= final;
+    if (e.body.pos.distanceToSquared(this.player.body.pos) < 900) {
+      const at = e.body.pos.clone();
+      at.y += e.def.height * 0.7 + (e.def.flying ? 1 : 0);
+      this.floatText.spawn(at, String(final), 'dmg');
+      this.particles.burst(at, 0xffffff, 6, 3, 0.06, 6, 0.3);
+      this.audio.play('hit', 0.5);
+    }
+    this.enemies.onDamaged(e, final, knock, false);
+    if (e.hp <= 0) this.onEnemyKilled(e, 0.5);
+  }
+
   onSkillImpact(id: string) {
     const p = this.state.player;
     const pl = this.player;
@@ -1748,7 +1785,8 @@ export class Game {
       const cy = e.body.pos.y + e.def.height * 0.5 + (e.def.flying ? 1 : 0);
       const d = Math.hypot(p.pos.x - e.body.pos.x, p.pos.z - e.body.pos.z);
       if (d < e.def.radius + 0.45 && Math.abs(p.pos.y - cy) < e.def.height * 0.6 + 0.4) {
-        this.damageEnemy(e, p.damage, p.vel.clone().setY(0).normalize(), false, true, 'mana');
+        if (p.source === 'tower') this.damageEnemyBy(e, p.damage, p.vel.clone().setY(0).normalize());
+        else this.damageEnemy(e, p.damage, p.vel.clone().setY(0).normalize(), false, true, 'mana');
         return true;
       }
     }
@@ -1900,6 +1938,8 @@ export class Game {
       this.env.time = t;
     },
     xp: (n: number) => this.gainXp(n),
+    research: (n: number) => this.civ.addPoints(n),
+    raid: () => this.defense.startRaid(true),
     heal: () => {
       const st = derivePlayerStats(this.state.player);
       this.state.player.hp = st.maxHp;

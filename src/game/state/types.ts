@@ -73,6 +73,35 @@ export interface Villager {
   look: number;
   arrivedDay: number;
   sadDays: number;
+  /** which slot of a multi-resident house */
+  homeSlot?: number;
+  hp?: number;
+  /** knocked out in a raid: lies down until morning */
+  down?: boolean;
+  /** day on which the villager was hurt (happiness penalty) */
+  hurtDay?: number;
+  /** guards not paid on this day refuse to work */
+  unpaidDay?: number;
+}
+
+export interface ResearchState {
+  points: number;
+  done: string[];
+  /** total research points ever gathered */
+  total: number;
+}
+
+export interface RaidState {
+  /** day on which the next raid comes (that night) */
+  nextDay: number;
+  active: boolean;
+  /** raid announced for tonight */
+  tonight: boolean;
+  repelled: number;
+  lost: number;
+  lastDay: number;
+  lastResult: string;
+  stolen: number;
 }
 
 export interface SettlementState {
@@ -88,6 +117,13 @@ export interface SettlementState {
   arrivalTimer: number;
   productionTimer: number;
   lastDay: number;
+  // ── PHASE 5: city & civilisation
+  treasury: number;
+  taxLevel: number;
+  research: ResearchState;
+  raid: RaidState;
+  /** uses left on the tool kit currently in use */
+  toolWear: number;
 }
 
 export interface WorldState {

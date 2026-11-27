@@ -8,6 +8,7 @@ import { ringTexture } from '../world/textures';
 import { buildEnemyRig, type EnemyRig } from './EnemyModels';
 import { moveBody, groundAt, type Body } from './physics';
 import type { Game } from '../Game';
+import type { RaidTarget } from '../systems/Defense';
 
 export type EnemyState = 'idle' | 'wander' | 'chase' | 'windup' | 'attack' | 'recover' | 'hurt' | 'dead' | 'return';
 
@@ -46,6 +47,10 @@ export class Enemy {
   detour = 0;
   detourSign = 1;
   lastPos = new THREE.Vector3();
+  /** part of a raid on the settlement: targets guards / villagers / the town hall instead of only the player */
+  raid = false;
+  raidTarget: RaidTarget | null = null;
+  retarget = 0;
 
   constructor(
     readonly def: EnemyDef,
@@ -103,6 +108,11 @@ export class EnemyManager {
     this.group.add(e.rig.root);
     if (def.boss) this.boss = e;
     return e;
+  }
+
+  /** Remove an enemy without a death (raiders fleeing at dawn). */
+  despawn(e: Enemy) {
+    this.removeEnemy(e);
   }
 
   private removeEnemy(e: Enemy, splice = true) {
@@ -265,7 +275,6 @@ export class EnemyManager {
       this.trySpawn();
     }
     const pp = game.player.body.pos;
-    const playerDead = game.player.dead;
     game.floatText.beginPlates();
     for (const e of [...this.list]) {
       if (e.removed) continue;
@@ -273,15 +282,23 @@ export class EnemyManager {
       e.stateTime += dt;
       e.cooldown -= dt;
       const def = e.def;
-      const dx = pp.x - e.body.pos.x;
-      const dz = pp.z - e.body.pos.z;
+      // the real player distance (for despawning, nameplates and personal space)
+      const pdx = pp.x - e.body.pos.x;
+      const pdz = pp.z - e.body.pos.z;
+      const pdist = Math.hypot(pdx, pdz);
+      // raiders chase their raid target; everyone else chases the player
+      const rt = e.raid && e.state !== 'dead' ? game.defense.targetFor(e, dt) : null;
+      const tp = rt ? rt.pos : pp;
+      const dx = tp.x - e.body.pos.x;
+      const dz = tp.z - e.body.pos.z;
       const dist = Math.hypot(dx, dz);
       const toPlayerYaw = Math.atan2(dx, dz);
+      const playerDead = rt ? false : game.player.dead;
       let moveSpeed = 0;
       let targetYaw = e.yaw;
 
       // Despawn far / daylight wisps
-      if (!def.boss && !def.dungeon && !e.aggro && dist > 115) {
+      if (!def.boss && !def.dungeon && !e.raid && !e.aggro && pdist > 115) {
         this.removeEnemy(e);
         continue;
       }
@@ -305,6 +322,10 @@ export class EnemyManager {
       switch (e.state) {
         case 'idle':
         case 'wander': {
+          if (e.raid) {
+            e.setState('chase');
+            break;
+          }
           if (!playerDead && dist < def.aggroRange && (game.env.isNight || def.id !== 'slime' || dist < def.aggroRange * 0.75)) {
             e.aggro = true;
             e.setState('chase');
@@ -337,7 +358,7 @@ export class EnemyManager {
             break;
           }
           const fromHome = Math.hypot(e.body.pos.x - e.home.x, e.body.pos.z - e.home.z);
-          if (fromHome > def.leash && dist > def.attacks[0].range + 2) {
+          if (!e.raid && fromHome > def.leash && dist > def.attacks[0].range + 2) {
             e.aggro = false;
             e.setState('return');
             break;
@@ -387,13 +408,13 @@ export class EnemyManager {
             e.body.vel.z = e.lungeDir.z * (atk.lungeSpeed ?? 8);
             if (!e.attackHit && dist < def.radius + 0.9) {
               e.attackHit = true;
-              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 6, source: e });
+              this.strike(e, def.damage * atk.mult, 6);
             }
           } else if (atk.kind === 'melee' && !e.attackHit) {
             e.attackHit = true;
             const ang = Math.abs(angleDiff(e.yaw, toPlayerYaw));
             if (dist < atk.range + 0.6 && ang < (((atk.arc ?? 90) / 2) * Math.PI) / 180 + 0.2) {
-              game.damagePlayer(def.damage * atk.mult, e.body.pos, { knock: 5, source: e });
+              this.strike(e, def.damage * atk.mult, 5);
             }
           }
           if (e.stateTime >= atk.active) {
@@ -422,6 +443,10 @@ export class EnemyManager {
           break;
         }
         case 'return': {
+          if (e.raid) {
+            e.setState('chase');
+            break;
+          }
           const hx = e.home.x - e.body.pos.x;
           const hz = e.home.z - e.body.pos.z;
           const hd = Math.hypot(hx, hz);
@@ -490,9 +515,9 @@ export class EnemyManager {
         }
       }
       // keep off the player
-      if (!playerDead && dist < def.radius + 0.4 && dist > 0.01 && e.state !== 'dead') {
-        e.body.pos.x -= (dx / dist) * (def.radius + 0.4 - dist) * 0.5;
-        e.body.pos.z -= (dz / dist) * (def.radius + 0.4 - dist) * 0.5;
+      if (!game.player.dead && pdist < def.radius + 0.4 && pdist > 0.01 && e.state !== 'dead') {
+        e.body.pos.x -= (pdx / pdist) * (def.radius + 0.4 - pdist) * 0.5;
+        e.body.pos.z -= (pdz / pdist) * (def.radius + 0.4 - pdist) * 0.5;
       }
       if (def.flying) {
         e.body.pos.x += e.body.vel.x * dt;
@@ -505,7 +530,7 @@ export class EnemyManager {
         if (e.body.pos.y < WORLD.waterLevel - 0.6) {
           // avoid water: push back home
           e.body.pos.y = WORLD.waterLevel - 0.6;
-          if (e.state !== 'dead') {
+          if (e.state !== 'dead' && !e.raid) {
             e.aggro = false;
             e.setState('return');
           }
@@ -525,13 +550,19 @@ export class EnemyManager {
         else m.emissive.setHex(m.userData.baseEmissive as number);
       }
       // Nameplate
-      if (!def.boss && e.state !== 'dead' && dist < 26 && (e.aggro || e.hp < e.maxHp)) {
+      if (!def.boss && e.state !== 'dead' && pdist < 26 && (e.aggro || e.hp < e.maxHp)) {
         this.tmp.copy(e.body.pos);
         this.tmp.y += def.height * def.scale + (def.flying ? 1.4 : 0.5);
         game.floatText.plate(game.camera, this.tmp, def.name, e.hp / e.maxHp, def.level, def.level > game.state.player.level + 1);
       }
     }
     game.floatText.endPlates();
+  }
+
+  /** A melee / lunge hit: raiders hit whatever they are after, others hit the player. */
+  private strike(e: Enemy, amount: number, knock: number) {
+    if (e.raid && e.raidTarget && e.raidTarget.kind !== 'player') this.game.defense.strike(e, amount, { knock });
+    else this.game.damagePlayer(amount, e.body.pos, { knock, source: e });
   }
 
   private beginAttack(e: Enemy, atk: AttackDef, toPlayerYaw: number) {
@@ -553,6 +584,7 @@ export class EnemyManager {
       if (Math.hypot(pp.x - c.x, pp.z - c.z) < (atk.aoe ?? 3) + 0.3 && Math.abs(pp.y - c.y) < 2.5) {
         game.damagePlayer(def.damage * atk.mult, c, { knock: 9, unblockable: true });
       }
+      if (e.raid) game.defense.slam(c, atk.aoe ?? 3, def.damage * atk.mult);
     } else if (atk.kind === 'ranged') {
       const pp = game.player.body.pos;
       const from = e.body.pos.clone();

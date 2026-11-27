@@ -63,6 +63,8 @@ const list: ItemDef[] = [
   { id: 'gloom_essence', name: '어둠의 정수', desc: '밤의 도깨비불이 남긴 차가운 정수.', category: 'material', rarity: 'rare', stack: 50, icon: { shape: 'essence', c1: '#7b4ad9', c2: '#d2b8ff' }, value: 25 },
   { id: 'wheat', name: '밀', desc: '밭에서 거둔 밀. 요리사가 빵으로 만든다. 주민의 비상식량이 되기도 한다.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'wheat', c1: '#e3c25a', c2: '#a8862a' }, value: 1 },
   { id: 'coin', name: '은화', desc: '마을 시장에서 쓰이는 화폐.', category: 'special', rarity: 'uncommon', stack: 999, icon: { shape: 'coin', c1: '#d8dde4', c2: '#8a929c' }, value: 1 },
+  { id: 'plank', name: '판자', desc: '곧게 켠 나무 판자. 주택과 대장간 물건의 재료.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'plank', c1: '#d0a060', c2: '#8a6030' }, value: 3 },
+  { id: 'tool_kit', name: '도구 꾸러미', desc: '구리 날을 단 연장 묶음. 마을 창고에 있으면 농부·나무꾼·광부가 써서 더 많이 생산한다.', category: 'material', rarity: 'uncommon', stack: 50, icon: { shape: 'toolkit', c1: '#c87533', c2: '#7a5230' }, value: 14 },
   { id: 'stone_brick', name: '석재 벽돌', desc: '반듯하게 다듬은 돌 벽돌. 대리석 건축물과 성벽의 재료.', category: 'material', rarity: 'uncommon', stack: 99, icon: { shape: 'brick', c1: '#d8d0c0', c2: '#9a9284' }, value: 4 },
   { id: 'bone', name: '뼈', desc: '묘소의 해골들이 남긴 오래된 뼈. 부적의 재료가 된다.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'bone', c1: '#e8e2d0', c2: '#b8ae94' }, value: 3 },
   { id: 'ancient_fragment', name: '고대 파편', desc: '알 수 없는 문양이 새겨진 석판 조각. 에테르눔 문명의 흔적.', category: 'material', rarity: 'rare', stack: 20, icon: { shape: 'fragment', c1: '#b9a77a', c2: '#5fe0d8' }, value: 40 },

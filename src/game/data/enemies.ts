@@ -122,6 +122,15 @@ const list: EnemyDef[] = [
     drops: [{ item: 'bone', chance: 0.85, min: 1, max: 3 }, { item: 'copper_ingot', chance: 0.15, min: 1, max: 1 }],
   },
   {
+    id: 'raider_skeleton', name: '떠도는 해골', level: 5, model: 'skeleton', hp: 78, damage: 12, defense: 4, speed: 1.6, chaseSpeed: 4.0,
+    radius: 0.5, height: 1.8, scale: 1, aggroRange: 14, leash: 30, cooldown: 1.2, poise: 12, xp: 36,
+    attacks: [
+      { kind: 'melee', range: 2.2, windup: 0.6, active: 0.15, recover: 0.55, mult: 1, arc: 90, weight: 1 },
+      { kind: 'lunge', range: 5, minRange: 2.8, windup: 0.8, active: 0.35, recover: 0.8, mult: 1.15, lungeSpeed: 10, weight: 0.4 },
+    ],
+    drops: [{ item: 'bone', chance: 0.8, min: 1, max: 2 }, { item: 'coin', chance: 0.5, min: 1, max: 4 }],
+  },
+  {
     id: 'skeleton_archer', name: '해골 궁수', level: 6, model: 'archer', hp: 62, damage: 13, defense: 3, speed: 1.6, chaseSpeed: 3.4,
     radius: 0.5, height: 1.8, scale: 1, aggroRange: 20, leash: 30, cooldown: 1.6, poise: 0, xp: 45, dungeon: true, keepDistance: 9,
     attacks: [{ kind: 'ranged', range: 18, windup: 0.95, active: 0.1, recover: 0.8, mult: 1, projSpeed: 19, homing: 0.15, color: 0xe8dcb8 }],

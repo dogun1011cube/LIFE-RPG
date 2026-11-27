@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BUILDABLE_BY_ID } from '../data/buildables';
 import { ITEMS, itemName } from '../data/items';
-import { FIRST_NAMES, FOOD_VALUE, JOBS, JOB_ORDER, MARKET_STOCK, SELL_RATE, SETTLEMENT_RADIUS, TIERS, type JobId } from '../data/village';
+import { FIRST_NAMES, FOOD_VALUE, GUARD_WAGE, JOBS, JOB_ORDER, MARKET_STOCK, SELL_RATE, SETTLEMENT_RADIUS, TAX_LEVELS, TIERS, TOOL_JOBS, settlementRadius, type JobId } from '../data/village';
 import type { SettlementState, Villager } from '../state/types';
 import { Inv } from './Inventory';
 import type { PlacedPiece } from './Building';
@@ -21,12 +21,32 @@ export function freshSettlement(): SettlementState {
     arrivalTimer: 0,
     productionTimer: 0,
     lastDay: 1,
+    treasury: 0,
+    taxLevel: 0,
+    research: { points: 0, done: [], total: 0 },
+    raid: { nextDay: 0, active: false, tonight: false, repelled: 0, lost: 0, lastDay: 0, lastResult: '', stolen: 0 },
+    toolWear: 0,
   };
+}
+
+/** Fill in PHASE 5 fields for saves made before them. */
+export function migrateSettlement(raw: Partial<SettlementState> | undefined): SettlementState {
+  const base = freshSettlement();
+  const st = { ...base, ...(raw ?? {}) } as SettlementState;
+  st.research = { ...base.research, ...(raw?.research ?? {}) };
+  st.raid = { ...base.raid, ...(raw?.raid ?? {}) };
+  st.raid.active = false; // a raid in progress does not survive a reload
+  return st;
 }
 
 const PRODUCTION_INTERVAL = 20; // seconds of play time between production ticks
 const ARRIVAL_INTERVAL = 40;
-const DECOR_SHAPES = new Set(['well', 'planter', 'banner', 'lantern', 'rug', 'bookshelf', 'table', 'chair']);
+const DECOR_SHAPES = new Set(['well', 'planter', 'banner', 'lantern', 'rug', 'bookshelf', 'table', 'chair', 'fountain']);
+/** Where in a house each resident sleeps (local offsets) - villagers inside are hidden anyway. */
+export interface HomeSlot {
+  piece: PlacedPiece;
+  slot: number;
+}
 
 /** The player's settlement: villagers, housing, jobs, production, food, happiness, tiers and the market. */
 export class SettlementSystem {
@@ -51,24 +71,46 @@ export class SettlementSystem {
     return h ? new THREE.Vector3(h.state.x, h.state.y, h.state.z) : null;
   }
 
+  /** Current settlement radius (grows with the town / city tiers). */
+  radius(): number {
+    return settlementRadius(this.state.tier);
+  }
+
   inRadius(x: number, z: number): boolean {
     const h = this.hall();
-    return !!h && (h.state.x - x) ** 2 + (h.state.z - z) ** 2 <= SETTLEMENT_RADIUS ** 2;
+    const R = this.radius();
+    return !!h && (h.state.x - x) ** 2 + (h.state.z - z) ** 2 <= R * R;
   }
 
   private piecesInRadius(pred: (p: PlacedPiece) => boolean): PlacedPiece[] {
     const h = this.hall();
     if (!h) return [];
     const out: PlacedPiece[] = [];
+    const R = this.radius();
     for (const p of this.game.building.pieces.values()) {
       if (!pred(p)) continue;
-      if ((p.state.x - h.state.x) ** 2 + (p.state.z - h.state.z) ** 2 <= SETTLEMENT_RADIUS ** 2) out.push(p);
+      if ((p.state.x - h.state.x) ** 2 + (p.state.z - h.state.z) ** 2 <= R * R) out.push(p);
     }
     return out;
   }
 
   beds(): PlacedPiece[] {
     return this.piecesInRadius((p) => p.def.shape === 'bed');
+  }
+
+  houses(): PlacedPiece[] {
+    return this.piecesInRadius((p) => (p.def.housing ?? 0) > 1);
+  }
+
+  /** Every place a villager can live: one per bed, several per house. */
+  homeSlots(): HomeSlot[] {
+    const out: HomeSlot[] = [];
+    for (const p of this.piecesInRadius((q) => (q.def.housing ?? 0) > 0)) for (let i = 0; i < (p.def.housing ?? 1); i++) out.push({ piece: p, slot: i });
+    return out;
+  }
+
+  count(id: string): number {
+    return this.piecesInRadius((p) => p.def.id === id).length;
   }
 
   workplaces(job: JobId): PlacedPiece[] {
@@ -86,7 +128,7 @@ export class SettlementSystem {
 
   capacity(): number {
     const t = TIERS.find((x) => x.level === this.state.tier);
-    return Math.min(this.beds().length, t?.capacity ?? 0);
+    return Math.min(this.homeSlots().length, t?.capacity ?? 0);
   }
 
   // ── Warehouse ───────────────────────────────────────────
@@ -272,17 +314,20 @@ export class SettlementSystem {
   }
 
   private assignHomes() {
-    const beds = this.beds();
-    const bedIds = new Set(beds.map((b) => b.state.id));
+    const slots = this.homeSlots();
+    const key = (id: number, slot: number) => `${id}:${slot}`;
+    const valid = new Set(slots.map((s) => key(s.piece.state.id, s.slot)));
     const vs = this.state.villagers;
-    for (const v of vs) if (v.homeId !== null && !bedIds.has(v.homeId)) v.homeId = null;
-    const taken = new Set(vs.map((v) => v.homeId));
+    for (const v of vs) if (v.homeId !== null && !valid.has(key(v.homeId, v.homeSlot ?? 0))) v.homeId = null;
+    const taken = new Set(vs.filter((v) => v.homeId !== null).map((v) => key(v.homeId!, v.homeSlot ?? 0)));
     for (const v of vs) {
       if (v.homeId !== null) continue;
-      const free = beds.find((b) => !taken.has(b.state.id));
+      // prefer houses (more comfortable) over loose beds
+      const free = slots.filter((s) => !taken.has(key(s.piece.state.id, s.slot))).sort((a, b) => (b.piece.def.housing ?? 1) - (a.piece.def.housing ?? 1))[0];
       if (!free) break;
-      v.homeId = free.state.id;
-      taken.add(free.state.id);
+      v.homeId = free.piece.state.id;
+      v.homeSlot = free.slot;
+      taken.add(key(free.piece.state.id, free.slot));
     }
   }
 
@@ -300,7 +345,10 @@ export class SettlementSystem {
     const b = this.game.building;
     let h = 45;
     const bed = v.homeId !== null ? b.pieces.get(v.homeId) : undefined;
-    if (bed) {
+    if (bed && (bed.def.housing ?? 1) > 1) {
+      // a proper house: roofed and furnished
+      h += 18 + (bed.def.material === 'stone' ? 8 : 4);
+    } else if (bed) {
       h += 10;
       // roofed home and comfortable surroundings
       const ray = new THREE.Raycaster(new THREE.Vector3(bed.state.x, bed.state.y + 1, bed.state.z), new THREE.Vector3(0, 1, 0), 0, 8);
@@ -315,8 +363,18 @@ export class SettlementSystem {
     h += v.fed ? 8 : -25;
     if (v.job && v.workId !== null) h += 5;
     const decor = new Set(this.piecesInRadius((p) => DECOR_SHAPES.has(p.def.shape)).map((p) => p.def.shape));
-    h += Math.min(12, decor.size * 3);
+    const civ = this.game.civ;
+    h += Math.min(civ.has('t_architecture') ? 18 : 12, decor.size * 3);
+    if (this.count('fountain') > 0) h += 6;
     if (this.piecesInRadius((p) => p.def.shape === 'road').length >= 8) h += 5;
+    // PHASE 5: taxes, safety, injuries, wages
+    h += TAX_LEVELS[this.state.taxLevel]?.happiness ?? 0;
+    if (this.workplaces('guard').length > 0) h += 3;
+    const day = this.game.env.day;
+    if (v.hurtDay !== undefined && day - v.hurtDay <= 1) h -= 10;
+    const raid = this.state.raid;
+    if (raid.lastResult === 'lost' && day - raid.lastDay <= 1) h -= 8;
+    if (v.job === 'guard' && v.unpaidDay !== undefined && day - v.unpaidDay <= 0) h -= 15;
     return Math.max(0, Math.min(100, h));
   }
 
@@ -328,11 +386,19 @@ export class SettlementSystem {
     let tier = 1;
     if (pop >= 4 && this.warehouses().length > 0 && jobKinds >= 2) tier = 2;
     if (tier >= 2 && pop >= 8 && this.averageHappiness() >= 60 && this.workplaces('merchant').length > 0 && st.charter) tier = 3;
+    const civ = this.game.civ;
+    if (tier >= 3 && pop >= 14 && civ.era() >= 2 && this.workplaces('guard').length > 0 && this.averageHappiness() >= 55) tier = 4;
+    if (tier >= 4 && pop >= 22 && civ.era() >= 3 && civ.has('t_administration') && this.count('fountain') > 0 && this.averageHappiness() >= 60) tier = 5;
+    // tiers are never lost, but each one needs the previous
+    tier = Math.min(tier, st.tier + 1);
     if (tier > st.tier) {
+      const oldR = this.radius();
       st.tier = tier;
       const name = this.tierName();
       this.log(`정착지가 "${name}" 단계로 성장했습니다.`);
-      this.game.events.emit('banner', { title: name, subtitle: `${st.name}이(가) 성장했습니다 · 수용 인원 ${TIERS[tier - 1].capacity}명`, kind: 'level' });
+      const grow = this.radius() > oldR ? ` · 정착지 반경 ${this.radius()}m` : '';
+      this.game.events.emit('banner', { title: name, subtitle: `${st.name}이(가) 성장했습니다 · 수용 인원 ${TIERS[tier - 1].capacity}명${grow}`, kind: 'level' });
+      if (tier === 2 && st.raid.nextDay === 0) st.raid.nextDay = this.game.env.day + 2;
       this.game.audio.play('levelup');
       this.game.refreshUnlocks();
     }
@@ -357,6 +423,11 @@ export class SettlementSystem {
       this.game.events.emit('notify', { text: '마을 회관이 없어 정착지가 멈췄습니다', kind: 'warn' });
     } else if (hall) st.hallId = hall.state.id;
     if (!st.founded) return;
+    // coins used to be stored in the warehouse; they now live in the treasury
+    if ((st.warehouse.coin ?? 0) > 0) {
+      st.treasury += st.warehouse.coin;
+      delete st.warehouse.coin;
+    }
     this.assignHomes();
     this.validateJobs();
     for (const v of st.villagers) {
@@ -368,6 +439,8 @@ export class SettlementSystem {
     c['village:pop'] = Math.max(c['village:pop'] ?? 0, st.villagers.length);
     c['village:employed'] = Math.max(c['village:employed'] ?? 0, this.employedCount());
     c['village:tier'] = Math.max(c['village:tier'] ?? 0, st.tier);
+    c['civ:era'] = Math.max(c['civ:era'] ?? 0, this.game.civ.era());
+    c['tech:count'] = Math.max(c['tech:count'] ?? 0, st.research.done.length);
     this.game.quests.check();
   }
 
@@ -387,13 +460,26 @@ export class SettlementSystem {
   }
 
   // ── Production & upkeep ─────────────────────────────────
+  /** A worker uses tool kits from the warehouse for extra output (one kit lasts 5 uses). */
+  private useTools(): number {
+    const st = this.state;
+    if (st.toolWear <= 0) {
+      if (this.takeFromWarehouse('tool_kit', 1) <= 0) return 0;
+      st.toolWear = 5;
+    }
+    st.toolWear--;
+    return 2;
+  }
+
   private produce() {
     const st = this.state;
     const b = this.game.building;
+    const civ = this.game.civ;
+    const c = this.game.state.counters;
     for (const v of st.villagers) {
       if (!v.job || v.workId === null || !this.game.villagers.isWorking(v.id)) continue;
       if (v.happiness < 30 && Math.random() < 0.5) continue;
-      const bonus = v.happiness > 70 && Math.random() < 0.25 ? 1 : 0;
+      const bonus = (v.happiness > 70 && Math.random() < 0.25 ? 1 : 0) + (TOOL_JOBS.includes(v.job as JobId) ? this.useTools() : 0);
       switch (v.job as JobId) {
         case 'farmer': {
           const plot = b.pieces.get(v.workId);
@@ -401,7 +487,7 @@ export class SettlementSystem {
           plot.state.growth = Math.min(1, (plot.state.growth ?? 0) + 0.34);
           if (plot.state.growth >= 1) {
             plot.state.growth = 0;
-            this.addToWarehouse('wheat', 4 + bonus);
+            this.addToWarehouse('wheat', 4 + bonus + (civ.has('t_agriculture') ? 2 : 0));
           }
           break;
         }
@@ -410,7 +496,37 @@ export class SettlementSystem {
           break;
         case 'miner':
           this.addToWarehouse('stone', 2 + bonus);
-          if (Math.random() < 0.25) this.addToWarehouse('copper_ore', 1);
+          if (Math.random() < 0.25 + (bonus >= 2 ? 0.15 : 0)) this.addToWarehouse('copper_ore', 1);
+          break;
+        case 'scholar': {
+          const desk = b.pieces.get(v.workId);
+          let shelves = 0;
+          if (desk) for (const p of b.pieces.values()) if (p.def.shape === 'bookshelf' && (p.state.x - desk.state.x) ** 2 + (p.state.z - desk.state.z) ** 2 < 36) shelves++;
+          civ.addPoints(2 + Math.min(2, shelves) + (civ.has('t_writing') ? 1 : 0) + bonus);
+          break;
+        }
+        case 'sawyer':
+          if ((st.warehouse.wood ?? 0) >= 3) {
+            this.takeFromWarehouse('wood', 3);
+            this.addToWarehouse('plank', 2 + bonus);
+          }
+          break;
+        case 'smelter':
+          if ((st.warehouse.copper_ore ?? 0) >= 2 && (st.warehouse.wood ?? 0) >= 1) {
+            this.takeFromWarehouse('copper_ore', 2);
+            this.takeFromWarehouse('wood', 1);
+            this.addToWarehouse('copper_ingot', 1 + bonus);
+          }
+          break;
+        case 'smith':
+          if ((st.warehouse.copper_ingot ?? 0) >= 1 && (st.warehouse.plank ?? 0) >= 1) {
+            this.takeFromWarehouse('copper_ingot', 1);
+            this.takeFromWarehouse('plank', 1);
+            this.addToWarehouse('tool_kit', 1);
+            c['village:tool_kit'] = (c['village:tool_kit'] ?? 0) + 1;
+          }
+          break;
+        case 'guard':
           break;
         case 'artisan':
           if ((st.warehouse.stone ?? 0) >= 3) {
@@ -428,10 +544,11 @@ export class SettlementSystem {
           }
           break;
         case 'merchant':
-          this.addToWarehouse('coin', 1 + bonus);
+          st.treasury += 1 + bonus + (civ.has('t_currency') ? 1 : 0) + (civ.has('t_trade') ? 1 : 0);
           break;
       }
     }
+    this.game.quests.check();
     this.game.bridge.bump();
   }
 
@@ -464,7 +581,89 @@ export class SettlementSystem {
       this.game.events.emit('notify', { text: `${v.name}이(가) 마을을 떠났습니다`, kind: 'warn' });
     }
     if (leaving.length) this.game.villagers.sync();
+    this.collectTaxes();
+    this.payWages();
+    this.game.defense.onNewDay();
     this.refresh();
+  }
+
+  // ── Treasury ────────────────────────────────────────────
+  taxIncome(): number {
+    const lvl = TAX_LEVELS[this.state.taxLevel] ?? TAX_LEVELS[0];
+    return Math.floor(lvl.perVillager * this.state.villagers.length * (this.game.civ.has('t_administration') ? 1.5 : 1));
+  }
+
+  wageCost(): number {
+    return this.state.villagers.filter((v) => v.job === 'guard' && v.workId !== null).length * GUARD_WAGE;
+  }
+
+  setTaxLevel(level: number): boolean {
+    if (level > 0 && !this.game.civ.has('t_currency')) {
+      this.game.events.emit('notify', { text: '세금을 걷으려면 "화폐"를 연구해야 합니다', kind: 'warn' });
+      return false;
+    }
+    this.state.taxLevel = Math.max(0, Math.min(TAX_LEVELS.length - 1, level));
+    this.log(`세율을 "${TAX_LEVELS[this.state.taxLevel].name}"(으)로 정했습니다.`);
+    this.refresh();
+    this.game.bridge.bump();
+    return true;
+  }
+
+  private collectTaxes() {
+    const n = this.taxIncome();
+    if (n <= 0) return;
+    this.state.treasury += n;
+    const c = this.game.state.counters;
+    c['tax:collected'] = (c['tax:collected'] ?? 0) + n;
+    this.log(`세금 ${n} 은화를 걷었습니다.`);
+  }
+
+  private payWages() {
+    const st = this.state;
+    const day = this.game.env.day;
+    const guards = st.villagers.filter((v) => v.job === 'guard' && v.workId !== null);
+    let unpaid = 0;
+    for (const g of guards) {
+      if (st.treasury >= GUARD_WAGE) {
+        st.treasury -= GUARD_WAGE;
+        g.unpaidDay = undefined;
+      } else {
+        g.unpaidDay = day;
+        unpaid++;
+      }
+    }
+    if (unpaid) {
+      this.log(`금고가 비어 경비병 ${unpaid}명이 급료를 받지 못해 일을 쉽니다.`);
+      this.game.events.emit('notify', { text: `급료를 받지 못한 경비병 ${unpaid}명이 일을 쉽니다`, kind: 'warn' });
+    }
+  }
+
+  /** Guards without pay stay home. */
+  onStrike(v: Villager): boolean {
+    return v.job === 'guard' && v.unpaidDay !== undefined && v.unpaidDay === this.game.env.day;
+  }
+
+  depositCoins(qty: number): number {
+    const inv = this.game.state.player.inventory;
+    const n = Math.min(qty, Inv.count(inv, 'coin'));
+    if (n <= 0) {
+      this.game.events.emit('notify', { text: '맡길 은화가 없습니다', kind: 'warn' });
+      return 0;
+    }
+    Inv.remove(inv, 'coin', n);
+    this.state.treasury += n;
+    this.game.audio.play('pickup');
+    this.game.bridge.bump();
+    return n;
+  }
+
+  withdrawCoins(qty: number): number {
+    const n = Math.min(qty, this.state.treasury);
+    if (n <= 0) return 0;
+    this.state.treasury -= n;
+    this.game.giveItem('coin', n, 'transfer', false);
+    this.game.bridge.bump();
+    return n;
   }
 
   private tryArrival() {
@@ -479,7 +678,7 @@ export class SettlementSystem {
     for (const p of this.game.building.pieces.values()) {
       if (p.def.shape !== 'farm_plot') continue;
       // plots grow slowly on their own; a working farmer speeds them up (see produce)
-      p.state.growth = Math.min(1, (p.state.growth ?? 0) + dt / 300);
+      p.state.growth = Math.min(1, (p.state.growth ?? 0) + dt / (this.game.civ.has('t_agriculture') ? 150 : 300));
       const crops = p.obj.object.getObjectByName('crops');
       if (crops) {
         const g = p.state.growth ?? 0;
@@ -544,14 +743,14 @@ export class SettlementSystem {
   sellPrice(id: string): number {
     const d = ITEMS[id];
     if (!d || d.category === 'special') return 0;
-    return Math.max(1, Math.floor(d.value * SELL_RATE));
+    return Math.max(1, Math.floor(d.value * (this.game.civ.has('t_trade') ? 0.75 : SELL_RATE)));
   }
 
   buyPrice(id: string): number {
     const s = MARKET_STOCK.find((x) => x.item === id);
     if (!s) return 0;
     // happy towns give better prices
-    return Math.max(1, Math.round(s.price * (this.averageHappiness() >= 70 ? 0.9 : 1)));
+    return Math.max(1, Math.round(s.price * (this.averageHappiness() >= 70 ? 0.9 : 1) * (this.game.civ.has('t_trade') ? 0.85 : 1)));
   }
 
   buy(id: string): boolean {

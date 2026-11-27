@@ -56,9 +56,50 @@ function mats() {
       awning2: new THREE.MeshStandardMaterial({ color: 0xffffff, map: clothTexture('#e8dcc0'), roughness: 0.95, side: THREE.DoubleSide }),
       fruit: new THREE.MeshStandardMaterial({ color: 0xe0642a, roughness: 0.6 }),
       rock: new THREE.MeshStandardMaterial({ color: 0x7d776c, roughness: 0.95, flatShading: true }),
+      windowLit: new THREE.MeshStandardMaterial({ color: 0x3a3226, emissive: 0xffb35a, emissiveIntensity: 0.1, roughness: 0.4 }),
+      water: new THREE.MeshStandardMaterial({ color: 0x3a8ab0, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.85 }),
+      spray: new THREE.MeshStandardMaterial({ color: 0xcfefff, emissive: 0x6ab8e0, emissiveIntensity: 0.3, transparent: true, opacity: 0.45, depthWrite: false }),
+      plaster: new THREE.MeshStandardMaterial({ color: 0xe6dcc6, roughness: 0.95 }),
+      iron: new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.45, metalness: 0.75 }),
     };
   }
   return MATS;
+}
+
+/** House windows light up at night (0 = day, 1 = night). */
+export function setWindowGlow(k: number) {
+  const m = mats().windowLit;
+  const target = 0.1 + k * 1.7;
+  m.emissiveIntensity += (target - m.emissiveIntensity) * 0.05;
+}
+
+/** Triangular gable end (in the XY plane, thickness along Z). */
+function gableGeo(width: number, height: number, depth: number, z: number, y0: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, 0);
+  shape.lineTo(width / 2, 0);
+  shape.lineTo(0, height);
+  shape.closePath();
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  g.translate(0, y0, z - depth / 2);
+  return g;
+}
+
+/** Two roof slabs meeting at a ridge along X. */
+function gableRoof(width: number, depth: number, eave: number, rise: number, mat: THREE.Material): PieceTemplate['parts'] {
+  const half = depth / 2 + 0.35;
+  const len = Math.hypot(half, rise);
+  const ang = Math.atan2(rise, half);
+  const a = boxGeo(width + 0.5, 0.16, len, 2);
+  a.rotateX(-ang);
+  a.translate(0, eave + rise / 2, half / 2);
+  const b = boxGeo(width + 0.5, 0.16, len, 2);
+  b.rotateX(ang);
+  b.translate(0, eave + rise / 2, -half / 2);
+  return [
+    { geo: a, mat },
+    { geo: b, mat },
+  ];
 }
 
 /** Box from min/max corners. */
@@ -551,6 +592,260 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
         { geo: new THREE.CylinderGeometry(0.14, 0.11, 0.22, 8).translate(0, 1.2, 0), mat: m.woodDark },
       ];
       return { parts, colliders: [col(-0.9, 0, -0.9, 0.9, 0.9, 0.9)], bounds: boundsOf(parts) };
+    }
+    case 'research_desk': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-1.0, 0.8, -0.45, 1.0, 0.9, 0.45, 1), mat: m.wood },
+        { geo: bx(-0.95, 0, -0.4, -0.85, 0.8, -0.3, 1), mat: m.woodDark },
+        { geo: bx(0.85, 0, -0.4, 0.95, 0.8, -0.3, 1), mat: m.woodDark },
+        { geo: bx(-0.95, 0, 0.3, -0.85, 0.8, 0.4, 1), mat: m.woodDark },
+        { geo: bx(0.85, 0, 0.3, 0.95, 0.8, 0.4, 1), mat: m.woodDark },
+        // open book, stacks, candle, scroll
+        { geo: bx(-0.35, 0.9, -0.05, 0.05, 0.94, 0.25, 1), mat: m.cloth },
+        { geo: bx(0.05, 0.9, -0.05, 0.4, 0.94, 0.25, 1), mat: m.cloth },
+        { geo: bx(-0.85, 0.9, -0.35, -0.5, 1.15, -0.1, 1), mat: m.books },
+        { geo: bx(-0.82, 1.15, -0.33, -0.55, 1.3, -0.12, 1), mat: m.banner },
+        { geo: new THREE.CylinderGeometry(0.04, 0.05, 0.18, 8).translate(0.6, 0.99, 0.1), mat: m.cloth },
+        { geo: new THREE.SphereGeometry(0.045, 8, 6).translate(0.6, 1.12, 0.1), mat: m.lamp },
+        { geo: new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8).rotateZ(Math.PI / 2).translate(0.55, 0.95, -0.28), mat: m.cloth },
+        // globe
+        { geo: new THREE.SphereGeometry(0.16, 12, 10).translate(0.78, 1.5, -0.78), mat: new THREE.MeshStandardMaterial({ color: 0x4a7aa8, roughness: 0.6 }) },
+        { geo: new THREE.TorusGeometry(0.19, 0.012, 6, 18).translate(0.78, 1.5, -0.78), mat: m.gold },
+        // shelf behind
+        { geo: bx(-1.1, 0, -0.95, 1.1, 1.9, -0.6, 1), mat: m.woodDark },
+        { geo: bx(-1.0, 0.35, -0.62, 1.0, 0.75, -0.6, 1), mat: m.books },
+        { geo: bx(-1.0, 0.95, -0.62, 0.4, 1.3, -0.6, 1), mat: m.books },
+        { geo: bx(-0.9, 1.45, -0.62, 0.2, 1.75, -0.6, 1), mat: m.banner },
+        { geo: bx(-0.7, 0, 0.6, 0.7, 0.02, 1.6, 1), mat: m.rug },
+      ];
+      return { parts, colliders: [col(-1.0, 0, -0.45, 1.0, 0.94, 0.45), col(-1.1, 0, -0.95, 1.1, 1.9, -0.6)], light: [0.6, 1.2, 0.1], bounds: boundsOf(parts) };
+    }
+    case 'sawmill': {
+      const parts: PieceTemplate['parts'] = [];
+      // log pile
+      for (let r = 0; r < 2; r++) for (let k = 0; k < 3 - r; k++) parts.push({ geo: new THREE.CylinderGeometry(0.22, 0.22, 1.8, 8).rotateX(Math.PI / 2).translate(-1.55 + k * 0.45 + r * 0.22, 0.22 + r * 0.4, 0), mat: m.woodDark });
+      // saw table + blade + plank
+      parts.push({ geo: bx(-0.9, 0.75, -0.45, 0.9, 0.85, 0.45, 1), mat: m.wood });
+      for (const [x, z] of [
+        [-0.8, -0.38],
+        [0.8, -0.38],
+        [-0.8, 0.38],
+        [0.8, 0.38],
+      ])
+        parts.push({ geo: bx(x - 0.06, 0, z - 0.06, x + 0.06, 0.75, z + 0.06, 1), mat: m.woodDark });
+      parts.push({ geo: new THREE.CylinderGeometry(0.42, 0.42, 0.03, 20).rotateZ(Math.PI / 2).translate(0, 0.95, 0), mat: m.iron });
+      parts.push({ geo: bx(-0.85, 0.85, 0.12, 0.6, 0.92, 0.38, 1), mat: m.wood });
+      // stacked planks
+      for (let i = 0; i < 4; i++) parts.push({ geo: bx(1.05, i * 0.1, -0.6, 1.95, i * 0.1 + 0.08, 0.6, 1), mat: i % 2 ? m.wood : m.woodDark });
+      // shelter
+      for (const [x, z] of [
+        [-2.0, -1.0],
+        [2.0, -1.0],
+        [-2.0, 1.0],
+        [2.0, 1.0],
+      ])
+        parts.push({ geo: bx(x - 0.08, 0, z - 0.08, x + 0.08, 2.5, z + 0.08, 1), mat: m.woodDark });
+      const roof = boxGeo(4.5, 0.12, 2.6, 2);
+      roof.rotateX(0.18);
+      roof.translate(0, 2.6, 0);
+      parts.push({ geo: roof, mat: m.roof });
+      return {
+        parts,
+        colliders: [col(-0.9, 0, -0.45, 0.9, 0.95, 0.45), col(-1.8, 0, -0.9, -1.1, 0.8, 0.9), col(1.05, 0, -0.6, 1.95, 0.4, 0.6), ...[-2, 2].flatMap((x) => [-1, 1].map((z) => col(x - 0.08, 0, z - 0.08, x + 0.08, 2.5, z + 0.08)))],
+        bounds: boundsOf(parts),
+      };
+    }
+    case 'smelter': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: new THREE.CylinderGeometry(1.0, 1.2, 2.0, 12).translate(0, 1.0, 0), mat: m.stone },
+        { geo: new THREE.CylinderGeometry(0.55, 1.0, 0.8, 12).translate(0, 2.4, 0), mat: m.stoneDark },
+        { geo: new THREE.CylinderGeometry(0.3, 0.35, 1.6, 8).translate(0, 3.4, 0), mat: m.stoneDark },
+        { geo: bx(-0.45, 0.2, 0.9, 0.45, 0.95, 1.18, 1), mat: m.glow },
+        { geo: bx(-0.6, 0.95, 0.95, 0.6, 1.1, 1.22, 1), mat: m.stoneDark },
+        { geo: new THREE.TorusGeometry(1.08, 0.06, 6, 20).rotateX(Math.PI / 2).translate(0, 1.4, 0), mat: m.iron },
+        // ore and coal heaps
+        { geo: new THREE.DodecahedronGeometry(0.35, 0).translate(1.5, 0.25, 0.6), mat: m.rock },
+        { geo: new THREE.DodecahedronGeometry(0.28, 0).translate(1.8, 0.2, 0.2), mat: new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.6, metalness: 0.4 }) },
+        { geo: bx(-1.9, 0, 0.3, -1.3, 0.5, 0.9, 1), mat: m.woodDark },
+      ];
+      return { parts, colliders: [col(-1.2, 0, -1.2, 1.2, 2.8, 1.2), col(-1.9, 0, 0.3, -1.3, 0.5, 0.9)], flame: { pos: [0, 0.3, 1.0], scale: 0.55 }, light: [0, 0.8, 1.4], bounds: boundsOf(parts) };
+    }
+    case 'smithy': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-1.6, 0, -1.2, 1.6, 0.12, 1.2), mat: m.stoneDark },
+        // forge
+        { geo: bx(-1.4, 0, -1.1, -0.4, 0.9, -0.3), mat: m.stone },
+        { geo: bx(-1.25, 0.9, -0.95, -0.55, 0.98, -0.45, 1), mat: m.glow },
+        { geo: bx(-1.1, 0.9, -1.05, -0.7, 2.9, -0.7, 1), mat: m.stoneDark },
+        // anvil
+        { geo: bx(0.0, 0, 0.6, 0.4, 0.45, 1.0, 1), mat: m.woodDark },
+        { geo: bx(-0.15, 0.45, 0.65, 0.55, 0.7, 0.95, 1), mat: m.iron },
+        { geo: new THREE.ConeGeometry(0.12, 0.3, 4).rotateZ(-Math.PI / 2).translate(0.7, 0.6, 0.8), mat: m.iron },
+        // barrel + rack
+        { geo: new THREE.CylinderGeometry(0.3, 0.28, 0.75, 10).translate(1.15, 0.38, -0.7), mat: m.woodDark },
+        { geo: new THREE.CylinderGeometry(0.27, 0.27, 0.02, 10).translate(1.15, 0.7, -0.7), mat: m.water },
+        { geo: bx(0.4, 0.9, -1.15, 1.5, 1.0, -1.05, 1), mat: m.woodDark },
+        { geo: bx(0.55, 0.4, -1.12, 0.6, 1.5, -1.08, 1), mat: m.iron },
+        { geo: bx(0.85, 0.4, -1.12, 0.9, 1.5, -1.08, 1), mat: m.iron },
+      ];
+      for (const [x, z] of [
+        [-1.55, -1.15],
+        [1.55, -1.15],
+        [-1.55, 1.15],
+        [1.55, 1.15],
+      ])
+        parts.push({ geo: bx(x - 0.09, 0, z - 0.09, x + 0.09, 2.6, z + 0.09, 1), mat: m.woodDark });
+      const roof = boxGeo(3.6, 0.14, 2.9, 2);
+      roof.rotateX(-0.2);
+      roof.translate(0, 2.75, 0);
+      parts.push({ geo: roof, mat: m.roof });
+      return {
+        parts,
+        colliders: [col(-1.4, 0, -1.1, -0.4, 0.98, -0.3), col(-0.15, 0, 0.6, 0.55, 0.7, 1.0), col(0.85, 0, -1.0, 1.45, 0.75, -0.4), ...[-1.55, 1.55].flatMap((x) => [-1.15, 1.15].map((z) => col(x - 0.09, 0, z - 0.09, x + 0.09, 2.6, z + 0.09)))],
+        flame: { pos: [-0.9, 0.95, -0.7], scale: 0.45 },
+        light: [-0.9, 1.2, -0.7],
+        bounds: boundsOf(parts),
+      };
+    }
+    case 'guard_post': {
+      const parts: PieceTemplate['parts'] = [];
+      for (const [x, z] of [
+        [-1, -1],
+        [1, -1],
+        [-1, 1],
+        [1, 1],
+      ])
+        parts.push({ geo: bx(x - 0.1, 0, z - 0.1, x + 0.1, 3.6, z + 0.1, 1), mat: m.woodDark });
+      parts.push({ geo: bx(-1.2, 2.2, -1.2, 1.2, 2.35, 1.2), mat: m.wood });
+      for (const z of [-1.15, 1.15]) parts.push({ geo: bx(-1.15, 2.35, z - 0.04, 1.15, 2.85, z + 0.04, 1), mat: m.wood });
+      parts.push({ geo: bx(-1.15, 2.35, -1.15, -1.07, 2.85, 1.15, 1), mat: m.wood });
+      parts.push(...gableRoof(2.4, 2.4, 3.6, 0.7, m.roof));
+      // ladder
+      for (const x of [-0.3, 0.3]) parts.push({ geo: bx(x - 0.04, 0, 1.2, x + 0.04, 2.4, 1.28, 1), mat: m.woodDark });
+      for (let i = 0; i < 6; i++) parts.push({ geo: bx(-0.3, 0.3 + i * 0.36, 1.2, 0.3, 0.35 + i * 0.36, 1.28, 1), mat: m.wood });
+      // banner + weapon rack
+      const cloth = new THREE.PlaneGeometry(0.6, 1.0, 1, 3);
+      cloth.translate(1.45, 2.9, 0);
+      parts.push({ geo: cloth, mat: m.banner });
+      parts.push({ geo: bx(-1.6, 0, -0.5, -1.5, 1.2, 0.5, 1), mat: m.woodDark });
+      for (let i = 0; i < 3; i++) parts.push({ geo: new THREE.CylinderGeometry(0.025, 0.025, 1.6, 6).translate(-1.45, 0.8, -0.3 + i * 0.3), mat: m.woodDark }, { geo: new THREE.ConeGeometry(0.06, 0.2, 4).translate(-1.45, 1.7, -0.3 + i * 0.3), mat: m.iron });
+      // torch
+      parts.push({ geo: bx(1.02, 2.6, 0.95, 1.12, 2.9, 1.05, 1), mat: m.woodDark });
+      return {
+        parts,
+        colliders: [...[-1, 1].flatMap((x) => [-1, 1].map((z) => col(x - 0.1, 0, z - 0.1, x + 0.1, 3.6, z + 0.1))), col(-1.2, 2.2, -1.2, 1.2, 2.35, 1.2), col(-1.6, 0, -0.5, -1.4, 1.2, 0.5)],
+        flame: { pos: [1.07, 2.95, 1.0], scale: 0.35 },
+        light: [1.07, 3.1, 1.0],
+        bounds: boundsOf(parts),
+      };
+    }
+    case 'archer_tower': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-1.3, 0, -1.3, 1.3, 1.4, 1.3), mat: m.stone },
+        { geo: bx(-1.1, 1.4, -1.1, 1.1, 5.5, 1.1), mat: m.wood },
+        { geo: bx(-1.6, 5.5, -1.6, 1.6, 5.8, 1.6), mat: m.woodDark },
+        { geo: new THREE.ConeGeometry(2.1, 1.4, 4).rotateY(Math.PI / 4).translate(0, 8.0, 0), mat: m.roof },
+      ];
+      for (const x of [-1.15, 1.15]) for (const y of [2.2, 3.4, 4.6]) parts.push({ geo: bx(x - 0.05, y, -1.13, x + 0.05, y + 0.6, 1.13, 1), mat: m.woodDark });
+      // battlements and roof posts
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        parts.push({ geo: bx(-0.18, 5.8, -0.08, 0.18, 6.4, 0.08, 1).rotateY(a).translate(Math.sin(a) * 1.5, 0, Math.cos(a) * 1.5), mat: m.wood });
+      }
+      for (const [x, z] of [
+        [-1.45, -1.45],
+        [1.45, -1.45],
+        [-1.45, 1.45],
+        [1.45, 1.45],
+      ])
+        parts.push({ geo: bx(x - 0.07, 5.8, z - 0.07, x + 0.07, 7.3, z + 0.07, 1), mat: m.woodDark });
+      // arrow slit glow
+      parts.push({ geo: bx(-0.08, 3.0, 1.1, 0.08, 3.8, 1.13, 1), mat: m.windowLit });
+      return { parts, colliders: [col(-1.3, 0, -1.3, 1.3, 5.5, 1.3), col(-1.6, 5.5, -1.6, 1.6, 5.8, 1.6)], light: [0, 6.3, 0], bounds: boundsOf(parts) };
+    }
+    case 'house_wood': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-2.1, 0, -2.1, 2.1, 0.3, 2.1), mat: m.stone },
+        { geo: bx(-1.9, 0.3, -1.9, 1.9, 2.8, 1.9), mat: m.plaster },
+        // timber frame
+        ...[-1.95, 1.95].flatMap((x) => [-1.95, 1.95].map((z) => ({ geo: bx(x - 0.1, 0.3, z - 0.1, x + 0.1, 2.85, z + 0.1, 1), mat: m.woodDark }))),
+        { geo: bx(-2.0, 2.7, -2.0, 2.0, 2.85, 2.0), mat: m.woodDark },
+        { geo: bx(-2.0, 1.45, 1.9, 2.0, 1.55, 1.96, 1), mat: m.woodDark },
+        { geo: bx(-2.0, 1.45, -1.96, 2.0, 1.55, -1.9, 1), mat: m.woodDark },
+        // door + windows (front = +z)
+        { geo: bx(-0.45, 0.3, 1.9, 0.45, 2.2, 1.98, 1), mat: m.woodDark },
+        { geo: new THREE.SphereGeometry(0.04, 6, 4).translate(0.3, 1.25, 2.0), mat: m.gold },
+        { geo: bx(-1.55, 1.0, 1.9, -0.85, 1.8, 1.97, 1), mat: m.windowLit },
+        { geo: bx(0.85, 1.0, 1.9, 1.55, 1.8, 1.97, 1), mat: m.windowLit },
+        { geo: bx(1.9, 1.0, -0.4, 1.97, 1.8, 0.4, 1), mat: m.windowLit },
+        { geo: bx(-1.97, 1.0, -0.4, -1.9, 1.8, 0.4, 1), mat: m.windowLit },
+        { geo: bx(-1.6, 0.95, 1.95, -0.8, 1.02, 2.1, 1), mat: m.woodDark },
+        { geo: bx(0.8, 0.95, 1.95, 1.6, 1.02, 2.1, 1), mat: m.woodDark },
+        // gables + roof + chimney
+        { geo: gableGeo(3.8, 1.6, 0.1, 1.87, 2.85), mat: m.wood },
+        { geo: gableGeo(3.8, 1.6, 0.1, -1.87, 2.85), mat: m.wood },
+        ...gableRoof(4.0, 4.0, 2.85, 1.6, m.roof),
+        { geo: bx(1.0, 3.2, -1.2, 1.5, 5.0, -0.7), mat: m.stoneDark },
+        // step and planter
+        { geo: bx(-0.6, 0, 2.1, 0.6, 0.18, 2.6), mat: m.stoneDark },
+        { geo: bx(-1.6, 0.3, 2.1, -1.0, 0.6, 2.4, 1), mat: m.woodDark },
+        { geo: new THREE.SphereGeometry(0.22, 8, 6).translate(-1.3, 0.75, 2.25), mat: m.leaf },
+        { geo: new THREE.SphereGeometry(0.06, 6, 4).translate(-1.2, 0.95, 2.35), mat: m.flower },
+      ];
+      return { parts, colliders: [col(-2.1, 0, -2.1, 2.1, 0.3, 2.1), col(-2.0, 0.3, -2.0, 2.0, 4.4, 2.0)], bounds: boundsOf(parts) };
+    }
+    case 'house_stone': {
+      const parts: PieceTemplate['parts'] = [
+        { geo: bx(-3.1, 0, -2.1, 3.1, 0.3, 2.1), mat: m.stoneDark },
+        { geo: bx(-2.95, 0.3, -1.95, 2.95, 5.0, 1.95), mat: m.stone },
+        { geo: bx(-3.0, 2.55, -2.0, 3.0, 2.75, 2.0), mat: m.woodDark },
+        { geo: bx(-3.0, 4.9, -2.0, 3.0, 5.05, 2.0), mat: m.woodDark },
+        // door with arch
+        { geo: bx(-0.5, 0.3, 1.95, 0.5, 2.3, 2.03, 1), mat: m.woodDark },
+        { geo: new THREE.CylinderGeometry(0.5, 0.5, 0.08, 12, 1, false, 0, Math.PI).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).translate(0, 2.3, 1.99), mat: m.woodDark },
+        { geo: new THREE.SphereGeometry(0.045, 6, 4).translate(0.33, 1.3, 2.06), mat: m.gold },
+        { geo: bx(-0.7, 0, 2.1, 0.7, 0.2, 2.7), mat: m.stoneDark },
+      ];
+      // two rows of windows
+      for (const y of [1.0, 3.3]) {
+        for (const x of [-2.1, -1.0, 1.0, 2.1]) {
+          if (y < 2 && Math.abs(x) < 1.1) continue;
+          parts.push({ geo: bx(x - 0.32, y, 1.95, x + 0.32, y + 0.9, 2.02, 1), mat: m.windowLit });
+          parts.push({ geo: bx(x - 0.4, y - 0.08, 1.96, x + 0.4, y, 2.1, 1), mat: m.stoneDark });
+        }
+        for (const z of [-0.8, 0.8]) {
+          parts.push({ geo: bx(2.95, y, z - 0.3, 3.02, y + 0.9, z + 0.3, 1), mat: m.windowLit });
+          parts.push({ geo: bx(-3.02, y, z - 0.3, -2.95, y + 0.9, z + 0.3, 1), mat: m.windowLit });
+        }
+        parts.push({ geo: bx(-2.4, y, -2.02, -1.8, y + 0.9, -1.95, 1), mat: m.windowLit });
+        parts.push({ geo: bx(1.8, y, -2.02, 2.4, y + 0.9, -1.95, 1), mat: m.windowLit });
+      }
+      parts.push({ geo: gableGeo(5.9, 1.7, 0.1, 1.9, 5.05), mat: m.stone });
+      parts.push({ geo: gableGeo(5.9, 1.7, 0.1, -1.9, 5.05), mat: m.stone });
+      parts.push(...gableRoof(6.0, 4.0, 5.05, 1.7, m.roof));
+      parts.push({ geo: bx(-2.2, 5.4, -1.3, -1.6, 7.3, -0.7), mat: m.stoneDark });
+      parts.push({ geo: bx(1.6, 5.4, 0.7, 2.2, 7.1, 1.3), mat: m.stoneDark });
+      return { parts, colliders: [col(-3.1, 0, -2.1, 3.1, 0.3, 2.1), col(-3.0, 0.3, -2.0, 3.0, 6.7, 2.0)], bounds: boundsOf(parts) };
+    }
+    case 'fountain': {
+      const wall = new THREE.CylinderGeometry(2.6, 2.7, 0.7, 28, 1, true).translate(0, 0.35, 0);
+      const inner = new THREE.CylinderGeometry(2.35, 2.35, 0.7, 28, 1, true).translate(0, 0.35, 0);
+      inner.scale(-1, 1, 1); // face inward
+      const parts: PieceTemplate['parts'] = [
+        { geo: new THREE.CylinderGeometry(3.0, 3.0, 0.1, 28).translate(0, 0.05, 0), mat: m.stoneDark },
+        { geo: wall, mat: m.marble },
+        { geo: inner, mat: m.marble },
+        { geo: new THREE.TorusGeometry(2.48, 0.16, 6, 28).rotateX(Math.PI / 2).translate(0, 0.72, 0), mat: m.marble },
+        { geo: new THREE.CylinderGeometry(2.36, 2.36, 0.05, 28).translate(0, 0.5, 0), mat: m.water },
+        { geo: new THREE.CylinderGeometry(0.35, 0.5, 1.8, 12).translate(0, 1.2, 0), mat: m.marble },
+        { geo: new THREE.CylinderGeometry(1.1, 0.4, 0.35, 16).translate(0, 2.2, 0), mat: m.marble },
+        { geo: new THREE.CylinderGeometry(1.0, 1.0, 0.04, 16).translate(0, 2.36, 0), mat: m.water },
+        { geo: new THREE.CylinderGeometry(0.15, 0.25, 0.9, 10).translate(0, 2.8, 0), mat: m.marble },
+        { geo: new THREE.SphereGeometry(0.22, 12, 10).translate(0, 3.35, 0), mat: m.marbleTrim },
+        { geo: new THREE.CylinderGeometry(1.1, 1.6, 1.8, 16, 1, true).translate(0, 1.4, 0), mat: m.spray },
+        { geo: new THREE.TorusGeometry(2.7, 0.05, 4, 28).rotateX(Math.PI / 2).translate(0, 0.62, 0), mat: m.marbleTrim },
+      ];
+      return { parts, colliders: [col(-2.7, 0, -2.7, 2.7, 0.75, 2.7), col(-0.5, 0, -0.5, 0.5, 3.5, 0.5)], bounds: boundsOf(parts) };
     }
     case 'banner': {
       const clothGeo = new THREE.PlaneGeometry(0.9, 1.6, 1, 4);
