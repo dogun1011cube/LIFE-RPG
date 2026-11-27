@@ -128,10 +128,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     __step(3.5); __arrive(3);
     const jobs = [__job('sawyer'), __job('smelter'), __job('smith')];
     __wh('wood', 60); __wh('copper_ore', 20);
-    const kits0 = g.state.counters['village:tool_kit'] ?? 0;
+    const kits0 = g.state.counters['village:tool_kit'] ?? 0; const ingots0 = g.state.counters['village:ingot'] ?? 0;
     g.debug.setTime(0.36); for (let i = 0; i < 90; i++) __step(1);
     const wh = g.state.settlement.warehouse;
-    return { t, jobs, plank: wh.plank ?? 0, ingot: wh.copper_ingot ?? 0, kitsMade: (g.state.counters['village:tool_kit'] ?? 0) - kits0, kitsLeft: wh.tool_kit ?? 0, wear: g.state.settlement.toolWear, questChain: g.state.quests.completed.includes('c_chain') };
+    return { t, jobs, plank: wh.plank ?? 0, ingot: (g.state.counters['village:ingot'] ?? 0) - ingots0, kitsMade: (g.state.counters['village:tool_kit'] ?? 0) - kits0, kitsLeft: wh.tool_kit ?? 0, wear: g.state.settlement.toolWear, questChain: g.state.quests.completed.includes('c_chain') };
   });
 
   // ── 5. taxes and wages

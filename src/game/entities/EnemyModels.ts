@@ -170,11 +170,12 @@ function wolf(pal = { fur: 0x7a756e, dark: 0x55514c, eye: 0xffaa33 }): EnemyRig 
   };
 }
 
-function golem(opts: { color: number; eye: number; horns?: boolean; rune?: number }): EnemyRig {
+function golem(opts: { color: number; eye: number; horns?: boolean; rune?: number; glow?: number }): EnemyRig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const rock = mat(opts.color, 0.95, { flatShading: true });
+  // lava creatures glow faintly from within so they read at night
+  const rock = mat(opts.color, 0.95, opts.glow ? { flatShading: true, emissive: opts.glow, emissiveIntensity: 0.32 } : { flatShading: true });
   const rockDark = mat(new THREE.Color(opts.color).multiplyScalar(0.7).getHex(), 0.95, { flatShading: true });
   const eyeMat = mat(opts.eye, 0.3, { emissive: opts.eye, emissiveIntensity: 1.6 });
   const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), rock);
@@ -608,13 +609,13 @@ export function buildEnemyRig(model: EnemyModel, scale: number): EnemyRig {
       rig = wolf({ fur: 0x3e3a38, dark: 0x262423, eye: 0xff4a1a });
       break;
     case 'lava_golem':
-      rig = golem({ color: 0x4a3a34, eye: 0xff7a2a, rune: 0xff4a1a });
+      rig = golem({ color: 0x5a463c, eye: 0xff7a2a, rune: 0xff4a1a, glow: 0x7a2a0a });
       break;
     case 'fire_wisp':
       rig = wisp({ core: 0xffc27a, emissive: 0xff6a1a, shell: 0x6a2a0a, shellE: 0xaa3a0a, glow: 0xff8a3a });
       break;
     case 'titan':
-      rig = golem({ color: 0x2e2420, eye: 0xffaa3a, horns: true, rune: 0xff4a0a });
+      rig = golem({ color: 0x5a4238, eye: 0xffaa3a, horns: true, rune: 0xff4a0a, glow: 0x8a2a08 });
       rig.root.scale.setScalar(1.9);
       break;
   }

@@ -529,6 +529,7 @@ export class SettlementSystem {
             this.takeFromWarehouse('copper_ore', 2);
             this.takeFromWarehouse('wood', 1);
             this.addToWarehouse('copper_ingot', 1 + bonus);
+            c['village:ingot'] = (c['village:ingot'] ?? 0) + 1 + bonus;
           }
           break;
         case 'smith':
