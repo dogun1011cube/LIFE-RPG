@@ -24,6 +24,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1500);
   const inject = () => page.evaluate(() => {
     window.__step = (sec, dt = 1 / 30) => { const g = window.__eternum; const n = Math.round(sec / dt); for (let i = 0; i < n; i++) { g.update(dt); g.input.endFrame(); } };
+    // weather is random since PHASE 6; keep these checks deterministic
+    if (window.__eternum.weather) window.__eternum.weather.set('clear', 1e9);
     window.__def = (id) => window.__eternum.building.available().find((b) => b.id === id);
     window.__flat = (x0, z0, w, d, tol = 2.5) => {
       const g = window.__eternum; const t = g.terrain;

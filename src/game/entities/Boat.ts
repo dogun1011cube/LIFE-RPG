@@ -134,6 +134,7 @@ export class BoatSystem {
     this.game.audio.play('door', 0.6);
     const c = this.game.state.counters;
     c['boat:boarded'] = (c['boat:boarded'] ?? 0) + 1;
+    this.game.quests.check();
   }
 
   /** A spot on land close to the boat, or null. */
@@ -141,7 +142,7 @@ export class BoatSystem {
     const b = this.group.position;
     let best: THREE.Vector3 | null = null;
     let bd = Infinity;
-    for (let r = 1.5; r <= 6; r += 0.75) {
+    for (let r = 1.5; r <= 10; r += 0.75) {
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 10) {
         const x = b.x + Math.cos(a) * r;
         const z = b.z + Math.sin(a) * r;

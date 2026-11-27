@@ -288,6 +288,56 @@ export const QUESTS: QuestDef[] = [
     objectives: [{ type: 'counter', key: 'village:tier', count: 5, label: '도시 단계' }],
     rewards: { xp: 1500 },
   },
+  // ── PHASE 6: the world beyond ────────────────────────────
+  {
+    id: 'w_sea', title: '수평선 너머', chain: 'main', requires: ['q_copper'],
+    summary: '배를 만들어 바다로 나가자.',
+    description: '맑은 날이면 남쪽 수평선 너머로 연기가 피어오른다. 헤엄쳐서는 먼 바다를 건널 수 없다. 작업대에서 작은 배를 만들고, 바닷가 얕은 물에서 사용해 배를 띄우자. [W/S] 속도, [A/D] 방향.',
+    objectives: [{ type: 'counter', key: 'boat:boarded', count: 1, label: '배에 타기' }],
+    rewards: { xp: 200, items: [{ item: 'cooked_meat', qty: 3 }] },
+  },
+  {
+    id: 'w_landing', title: '잿불 섬', chain: 'main', requires: ['w_sea'],
+    summary: '남쪽의 화산섬에 상륙하자.',
+    description: '배를 타고 남쪽으로 400m쯤 가면 검은 모래 해변이 나온다. 섬에는 그을린 나무와 철광맥, 그리고 불의 생물들이 있다. 육지 가까이에서 [E]로 내릴 수 있다.',
+    objectives: [{ type: 'discover', location: 'ember_landing' }],
+    rewards: { xp: 300 },
+  },
+  {
+    id: 'w_iron', title: '철의 시대', chain: 'main', requires: ['w_landing'],
+    summary: '철광석을 캐고 숯불로 녹이자.',
+    description: '잿불 섬 산비탈의 철광맥은 구리 곡괭이로 캘 수 있다. 그을린 나무에서 숯을 얻어, 화로에서 철광석 2개와 숯 1개로 철 주괴를 만들자. 철로 더 강한 무기·도구·갑옷을 만들 수 있다.',
+    objectives: [{ type: 'craft', item: 'iron_ingot', count: 3 }],
+    rewards: { xp: 400, items: [{ item: 'ember_fruit', qty: 3 }] },
+  },
+  {
+    id: 'w_titan', title: '산의 심장', chain: 'main', requires: ['w_iron'],
+    summary: '흑요석 화로 셋에 불을 붙이고 용암 거신을 쓰러뜨리자.',
+    description: '불의 산 비탈에 흑요석 화로 셋이 있다(숯 2개씩). 셋 모두 타오르면 분화구의 봉인이 깨어난다. 분화구의 용암 웅덩이를 조심하고, 불씨 열매로 화염 저항을 얻자. 용암 거신의 핵으로 전설의 무기를 만들 수 있다.',
+    objectives: [{ type: 'counter', key: 'boss:titan', count: 1, label: '용암 거신 처치' }],
+    rewards: { xp: 1200 },
+  },
+  {
+    id: 'w_dock', title: '항구', chain: 'side', requires: ['v_found'],
+    summary: '선착장을 짓자.',
+    description: '"길·다리" 분류의 선착장은 한쪽 끝을 땅에, 다른 끝을 물 위에 놓아야 한다. 마을 반경 안의 선착장에는 해풍 상단의 교역선이 사흘마다 들른다.',
+    objectives: [{ type: 'build', piece: 'dock', count: 1 }],
+    rewards: { xp: 150 },
+  },
+  {
+    id: 'w_trade', title: '해풍 상단', chain: 'side', requires: ['w_dock'],
+    summary: '교역선과 거래하자.',
+    description: '교역선은 아침 8시에 선착장에 들어와 저녁 7시까지 머문다. 배 가까이에서 [E]로 거래할 수 있다. 거래할수록 상단의 평판이 오른다.',
+    objectives: [{ type: 'counter', key: 'ship:trade', count: 3, label: '교역' }],
+    rewards: { xp: 200, items: [{ item: 'spice', qty: 3 }] },
+  },
+  {
+    id: 'w_ally', title: '상단의 단골', chain: 'side', requires: ['w_trade'],
+    summary: '해풍 상단의 평판을 50까지 올리자.',
+    description: '평판이 오르면 값이 싸지고 고급 돛, 흑요석, 그리고 동맹에게만 주는 부적을 살 수 있다.',
+    objectives: [{ type: 'counter', key: 'faction:rep', count: 50, label: '상단 평판' }],
+    rewards: { xp: 500 },
+  },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

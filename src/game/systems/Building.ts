@@ -615,7 +615,7 @@ export class BuildSystem {
       const bottom = y + tpl.bounds.min.y;
       const th = terrain.heightAt(x, z);
       if (def.shape !== 'road' && th > bottom + 1.3 && def.snap !== 'free') return { valid: false, reason: '지면에 너무 깊이 묻힙니다' };
-      if (def.snap === 'free' && Math.abs(th - y) < 0.2 && terrain.slopeAt(x, z) > 0.6) return { valid: false, reason: '경사가 너무 급합니다' };
+      if (def.snap === 'free' && def.shape !== 'dock' && Math.abs(th - y) < 0.2 && terrain.slopeAt(x, z) > 0.6) return { valid: false, reason: '경사가 너무 급합니다' };
       if (def.shape === 'road' && terrain.slopeAt(x, z) > 1.0) return { valid: false, reason: '경사가 너무 급합니다' };
     }
     const stab = this.predict(def, allBoxes);

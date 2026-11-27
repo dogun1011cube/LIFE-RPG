@@ -23,6 +23,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1500);
   const inject = () => page.evaluate(() => {
     window.__step = (sec, dt = 1 / 30) => { const g = window.__eternum; const n = Math.round(sec / dt); for (let i = 0; i < n; i++) { g.update(dt); g.input.endFrame(); } };
+    // weather is random since PHASE 6; keep these checks deterministic
+    if (window.__eternum.weather) window.__eternum.weather.set('clear', 1e9);
     window.__key = (code, down) => window.__eternum.input.simulateKey(code, down);
     window.__def = (id) => window.__eternum.building.available().find((b) => b.id === id);
     window.__top = (x, z) => { const t = window.__eternum.terrain; let m = -99; for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]]) m = Math.max(m, t.heightAt(x + dx, z + dz)); return Math.ceil((m + 0.08) / 0.25) * 0.25; };

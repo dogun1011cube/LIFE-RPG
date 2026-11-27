@@ -51,6 +51,12 @@ export class Enemy {
   raid = false;
   raidTarget: RaidTarget | null = null;
   retarget = 0;
+  /** raiders follow A* paths inside the settlement grid */
+  path: THREE.Vector3[] | null = null;
+  pathI = 0;
+  pathFor = new THREE.Vector3(Infinity, 0, 0);
+  pathVersion = -1;
+  repath = 0;
 
   constructor(
     readonly def: EnemyDef,
@@ -95,6 +101,10 @@ export class EnemyManager {
   boss: Enemy | null = null;
   private spawnTimer = 2;
   private tmp = new THREE.Vector3();
+  /** A* searches allowed per frame for raiders */
+  private pathBudget = 0;
+  /** stats for tests */
+  raidPaths = 0;
 
   constructor(private game: Game) {
     this.group.name = 'enemies';
@@ -299,6 +309,7 @@ export class EnemyManager {
       this.trySpawn();
     }
     const pp = game.player.body.pos;
+    this.pathBudget = 2;
     game.floatText.beginPlates();
     for (const e of [...this.list]) {
       if (e.removed) continue;
@@ -350,7 +361,8 @@ export class EnemyManager {
             e.setState('chase');
             break;
           }
-          if (!playerDead && dist < def.aggroRange && (game.env.isNight || def.id !== 'slime' || dist < def.aggroRange * 0.75)) {
+          const aggro = def.aggroRange * (game.weather?.aggroMult ?? 1);
+          if (!playerDead && dist < aggro && (game.env.isNight || def.id !== 'slime' || dist < aggro * 0.75)) {
             e.aggro = true;
             e.setState('chase');
             if (def.id === 'wolf') game.audio.play('hurt', 0.3);
@@ -388,6 +400,10 @@ export class EnemyManager {
             break;
           }
           targetYaw = toPlayerYaw;
+          if (e.raid) {
+            const wp = this.raidWaypoint(e, tp, dist, dt);
+            if (wp) targetYaw = Math.atan2(wp.x - e.body.pos.x, wp.z - e.body.pos.z);
+          }
           if (e.cooldown <= 0) {
             const atk = this.chooseAttack(e, dist);
             if (atk) {
@@ -581,6 +597,27 @@ export class EnemyManager {
       }
     }
     game.floatText.endPlates();
+  }
+
+  /** Next point on the raider's A* route through the town (null = go straight). */
+  private raidWaypoint(e: Enemy, target: THREE.Vector3, dist: number, dt: number): THREE.Vector3 | null {
+    e.repath -= dt;
+    if (dist < 3.5) return null;
+    const nav = this.game.nav;
+    if (!nav.ensure() || !nav.inBounds(e.body.pos.x, e.body.pos.z) || !nav.inBounds(target.x, target.z)) return null;
+    const stale = !e.path || e.pathFor.distanceToSquared(target) > 9 || e.pathVersion !== nav.version;
+    if (stale && e.repath <= 0 && this.pathBudget > 0) {
+      this.pathBudget--;
+      this.raidPaths++;
+      e.repath = 1.0;
+      e.path = nav.findPath(e.body.pos, target) ?? [];
+      e.pathI = 0;
+      e.pathFor.copy(target);
+      e.pathVersion = nav.version;
+    }
+    if (!e.path || !e.path.length) return null;
+    while (e.pathI < e.path.length - 1 && Math.hypot(e.path[e.pathI].x - e.body.pos.x, e.path[e.pathI].z - e.body.pos.z) < 1.0 + e.def.radius * 0.5) e.pathI++;
+    return e.path[e.pathI];
   }
 
   /** A melee / lunge hit: raiders hit whatever they are after, others hit the player. */

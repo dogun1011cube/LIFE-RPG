@@ -481,7 +481,7 @@ export class VillagerManager {
       let goal: Goal = 'leisure';
       if (settled && guard && (raid || guardDuty)) goal = 'guard';
       else if (settled && raid) goal = 'shelter';
-      else if (settled && night && v.homeId !== null) goal = 'home';
+      else if (settled && (night || (game.weather.raining && !(workHours && v.job && v.workId !== null))) && v.homeId !== null) goal = 'home';
       else if (settled && guard && v.homeId !== null) goal = 'home'; // off-duty guards sleep by day
       else if (settled && workHours && v.job && v.job !== 'guard' && v.workId !== null) goal = 'work';
       if (goal !== a.goal) {

@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useGame } from '../GameContext';
 import { JOBS, JOB_ORDER, VILLAGER_LINES, type JobId } from '../../game/data/village';
+import { FACTION_NAME, REP_LEVELS, SHIP_STOCK } from '../../game/systems/TradeShip';
+import { ITEMS } from '../../game/data/items';
+import { Inv } from '../../game/systems/Inventory';
+import { ItemIcon } from '../icons';
 
 export function LorePanel() {
   const game = useGame();
@@ -133,6 +137,76 @@ export function VillagerPanel() {
         <button className="btn" onClick={() => game.closePanel(true)}>
           닫기 <kbd>E</kbd>
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Trading with the Seawind Company's ship at the dock. */
+export function ShipPanel() {
+  const game = useGame();
+  const S = game.ship;
+  const inv = game.state.player.inventory;
+  const f = game.state.faction;
+  const lvl = S.repLevel();
+  const next = REP_LEVELS.find((r) => r.min > f.rep);
+  const coins = Inv.count(inv, 'coin');
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && game.closePanel(true)}>
+      <div className="panel ship-panel">
+        <div className="panel-title">
+          {FACTION_NAME}의 교역선 <span className="muted small">· 평판 {f.rep} ({lvl.name}){next ? ` · 다음 단계 ${next.name}: ${next.min}` : ''}</span>
+        </div>
+        <div className="obj-bar wide rep-bar">
+          <div style={{ width: `${f.rep}%` }} />
+        </div>
+        <div className="ship-cols">
+          <div>
+            <div className="req-title">사기 (은화 {coins})</div>
+            {SHIP_STOCK.map((s) => {
+              const locked = f.rep < s.rep;
+              return (
+                <div key={s.item} className={`trade-row ${locked ? 'locked' : ''}`} title={ITEMS[s.item]?.desc}>
+                  <ItemIcon id={s.item} size={22} />
+                  <span>
+                    {ITEMS[s.item]?.name}
+                    {locked && <small className="muted"> · 평판 {s.rep}</small>}
+                  </span>
+                  <button className="btn tiny" disabled={locked} onClick={() => S.buy(s.item)}>
+                    {S.buyPrice(s.item)} 은화
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div>
+            <div className="req-title">팔기 (클릭: 1개 · 우클릭: 전부)</div>
+            <p className="muted small">상단은 도구 꾸러미·판자·빵·석재 벽돌·가죽을 비싸게 사 간다.</p>
+            <div className="slot-grid mini">
+              {inv.map((s, i) => (
+                <div
+                  key={i}
+                  className="slot filled tiny-slot"
+                  title={s ? `${ITEMS[s.id].name} · ${S.sellPrice(s.id)} 은화` : ''}
+                  onClick={() => S.sell(i, false)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    S.sell(i, true);
+                  }}
+                >
+                  {s && <ItemIcon id={s.id} size={24} />}
+                  {s && s.qty > 1 && <span className="qty">{s.qty}</span>}
+                </div>
+              ))}
+            </div>
+            <p className="muted small">거래한 은화만큼 평판이 오르고, 평판이 높을수록 값이 좋아지며 새 물건이 나온다. 배는 저녁 7시에 떠나고 사흘마다 다시 온다.</p>
+          </div>
+        </div>
+        <div className="row-end">
+          <button className="btn" onClick={() => game.closePanel(true)}>
+            닫기
+          </button>
+        </div>
       </div>
     </div>
   );

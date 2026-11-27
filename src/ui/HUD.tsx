@@ -7,6 +7,7 @@ import { xpToNext } from '../game/systems/Stats';
 import { Inv } from '../game/systems/Inventory';
 import type { GameEvents, NotifyKind } from '../game/core/Events';
 import { drawWorldMap } from './mapDraw';
+import { WEATHER_INFO } from '../game/world/Weather';
 import { SKILL_BY_ID, SKILL_KEY_LABELS, TREE_INFO } from '../game/data/skills';
 
 function Bar({ value, max, cls, label }: { value: number; max: number; cls: string; label?: boolean }) {
@@ -163,6 +164,11 @@ function Minimap() {
       <div className="clock">
         <span className="clock-icon">{game.env.isNight ? '☾' : '☀'}</span>
         {game.env.day}일차 · {hh}:{mm}
+        {!game.inDungeon && (
+          <span className="weather-chip" title={WEATHER_INFO[game.weather.kind].desc}>
+            {WEATHER_INFO[game.weather.kind].icon} {WEATHER_INFO[game.weather.kind].name}
+          </span>
+        )}
       </div>
       <div className="region-name">{game.state.settlement.founded && game.settlement.inRadius(game.player.body.pos.x, game.player.body.pos.z) ? `🏘 ${game.state.settlement.name} · 주민 ${game.state.settlement.villagers.length}` : game.discovery.regionName()}</div>
       {game.shelter.indoors && (
@@ -511,6 +517,11 @@ export function HUD() {
       <StatusPanel />
       <Minimap />
       <QuestTracker />
+      {game.boats.onBoard && (
+        <div className="sail-hint">
+          ⛵ 항해 중 · 속도 {Math.abs(game.boats.speed).toFixed(1)} m/s · <kbd>W</kbd>/<kbd>S</kbd> 속도 <kbd>A</kbd>/<kbd>D</kbd> 방향 · 육지 근처에서 <kbd>E</kbd> 내리기
+        </div>
+      )}
       {game.defense.active && <div className="raid-alert">⚔ 습격 중 · 남은 괴물 {game.defense.remaining()}</div>}
       {!game.defense.active && game.state.settlement.raid.tonight && <div className="raid-alert soon">⚠ 오늘 밤 22시 마을 습격 예정</div>}
       <Notifications />

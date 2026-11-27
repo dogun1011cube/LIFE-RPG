@@ -508,3 +508,15 @@ kbd {
   .civ-body { grid-template-columns: 1fr; overflow: auto; }
   .tech-tree { grid-template-columns: 1fr; overflow: visible; }
 }
+
+/* ── PHASE 6: weather, sailing, merchant ship ───────────── */
+.weather-chip { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line-soft); font-size: 12px; color: #dce6f0; }
+.sail-hint { position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(10, 30, 50, 0.7); border: 1px solid rgba(120, 180, 230, 0.4); color: #dcecff; font-size: 13px; white-space: nowrap; }
+.sail-hint kbd { font-size: 11px; padding: 1px 5px; margin: 0 2px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); }
+.ship-panel { width: min(760px, 94vw); max-height: 86vh; overflow: auto; }
+.ship-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.trade-row.locked { opacity: 0.5; }
+.rep-bar { width: 100%; margin: 4px 0 10px; }
+.rep-bar > div { background: linear-gradient(90deg, #2c6a9a, #7fc4ff); }
+.row-end { display: flex; justify-content: flex-end; margin-top: 10px; }
+@media (max-width: 760px) { .ship-cols { grid-template-columns: 1fr; } .sail-hint { white-space: normal; width: 90vw; text-align: center; } }

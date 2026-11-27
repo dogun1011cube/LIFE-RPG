@@ -23,6 +23,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await sleep(1500);
   const inject = () => page.evaluate(() => {
     window.__step = (sec, dt = 1 / 30) => { const g = window.__eternum; const n = Math.round(sec / dt); for (let i = 0; i < n; i++) { g.update(dt); g.input.endFrame(); } };
+    // weather is random since PHASE 6; keep these checks deterministic
+    if (window.__eternum.weather) window.__eternum.weather.set('clear', 1e9);
     window.__key = (code, down) => window.__eternum.input.simulateKey(code, down);
     window.__tap = (code) => { __key(code, true); __step(1 / 30); __key(code, false); __step(1 / 30); };
     window.__inv = (id) => window.__eternum.state.player.inventory.filter(Boolean).filter((s) => s.id === id).reduce((a, s) => a + s.qty, 0);

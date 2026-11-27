@@ -1644,6 +1644,7 @@ export class Game {
     }
     // swimming far out at sea: the waves wear you down - you need a boat
     if (this.player.swimming && !this.boats.onBoard && this.terrain.heightAt(pp.x, pp.z) < -9) {
+      this.player.staminaDelay = Math.max(this.player.staminaDelay, 0.3); // no rest in the waves
       p.stamina = Math.max(0, p.stamina - 9 * dt);
       if (p.stamina <= 0) {
         p.hp -= 6 * dt;

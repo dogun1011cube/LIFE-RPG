@@ -743,6 +743,17 @@ export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; m
         </g>
       );
       break;
+    case 'dock':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <rect x="0" y="34" width="48" height="14" fill="#2f6a8a" stroke="none" />
+          <path d="M4 26 L30 18 L44 24 L18 32 Z" fill={main} />
+          <path d="M10 30 V42 M18 32 V44 M30 22 V36 M38 26 V38" stroke={dark} strokeWidth="2.5" />
+          <path d="M40 24 V10" stroke={dark} strokeWidth="2" />
+          <rect x="37" y="7" width="6" height="5" fill="#ffd28a" />
+        </g>
+      );
+      break;
     case 'fountain':
       body = (
         <g stroke={s} strokeWidth="1.2">

@@ -382,6 +382,7 @@ export class SettlementSystem {
     // PHASE 5: taxes, safety, injuries, wages
     h += TAX_LEVELS[this.state.taxLevel]?.happiness ?? 0;
     if (this.workplaces('guard').length > 0) h += 3;
+    if ((this.state.warehouse.spice ?? 0) > 0) h += 6;
     const day = this.game.env.day;
     if (v.hurtDay !== undefined && day - v.hurtDay <= 1) h -= 10;
     const raid = this.state.raid;
@@ -496,7 +497,7 @@ export class SettlementSystem {
         case 'farmer': {
           const plot = b.pieces.get(v.workId);
           if (!plot) break;
-          plot.state.growth = Math.min(1, (plot.state.growth ?? 0) + 0.34);
+          plot.state.growth = Math.min(1, (plot.state.growth ?? 0) + 0.34 * this.game.weather.growthMult);
           if (plot.state.growth >= 1) {
             plot.state.growth = 0;
             this.addToWarehouse('wheat', 4 + bonus + (civ.has('t_agriculture') ? 2 : 0));
@@ -593,6 +594,7 @@ export class SettlementSystem {
       this.game.events.emit('notify', { text: `${v.name}이(가) 마을을 떠났습니다`, kind: 'warn' });
     }
     if (leaving.length) this.game.villagers.sync();
+    if ((st.warehouse.spice ?? 0) > 0) this.takeFromWarehouse('spice', 1);
     this.collectTaxes();
     this.payWages();
     this.game.defense.onNewDay();
@@ -690,7 +692,7 @@ export class SettlementSystem {
     for (const p of this.game.building.pieces.values()) {
       if (p.def.shape !== 'farm_plot') continue;
       // plots grow slowly on their own; a working farmer speeds them up (see produce)
-      p.state.growth = Math.min(1, (p.state.growth ?? 0) + dt / (this.game.civ.has('t_agriculture') ? 150 : 300));
+      p.state.growth = Math.min(1, (p.state.growth ?? 0) + (dt * this.game.weather.growthMult) / (this.game.civ.has('t_agriculture') ? 150 : 300));
       const crops = p.obj.object.getObjectByName('crops');
       if (crops) {
         const g = p.state.growth ?? 0;
