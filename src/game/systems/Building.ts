@@ -559,12 +559,28 @@ export class BuildSystem {
     return { x, y, z, rot, valid, reason };
   }
 
+  /** Outside every island (open sea / beyond the map). */
+  private outOfWorld(x: number, z: number): boolean {
+    const isle = this.game.terrain.islandOf(x, z);
+    return !isle || Math.abs(x - isle.cx) > isle.half - 10 || Math.abs(z - isle.cz) > isle.half - 10;
+  }
+
   validate(def: BuildableDef, x: number, y: number, z: number, rot: number): { valid: boolean; reason: string } {
     const game = this.game;
     const terrain = game.terrain;
     if (!this.isKnown(def.id)) return { valid: false, reason: '아직 모르는 건축물입니다' };
-    if (Math.abs(x) > WORLD.size / 2 - 10 || Math.abs(z) > WORLD.size / 2 - 10) return { valid: false, reason: '세계의 끝입니다' };
-    if (y < WORLD.waterLevel + 0.05 && def.shape !== 'foundation') return { valid: false, reason: '물속에는 지을 수 없습니다' };
+    if (this.outOfWorld(x, z)) return { valid: false, reason: '세계의 끝입니다' };
+    if (def.shape === 'dock') {
+      // one end on the shore, the other over open water
+      const s = Math.sin(rot);
+      const c = Math.cos(rot);
+      const land = terrain.heightAt(x - s * 3.5, z - c * 3.5);
+      const sea = terrain.heightAt(x + s * 5.5, z + c * 5.5);
+      if (land < WORLD.waterLevel - 0.3) return { valid: false, reason: '선착장의 한쪽 끝은 땅에 닿아야 합니다' };
+      if (sea > WORLD.waterLevel - 0.6) return { valid: false, reason: '선착장의 다른 끝은 물 위로 뻗어야 합니다 (회전: R)' };
+      if (y < WORLD.waterLevel + 0.1) return { valid: false, reason: '물가의 땅 위에서 시작하세요' };
+    }
+    if (y < WORLD.waterLevel + 0.05 && def.shape !== 'foundation' && def.shape !== 'dock') return { valid: false, reason: '물속에는 지을 수 없습니다' };
     for (const loc of LOCATIONS) {
       const r = loc.kind === 'camp' ? 9 : loc.flatRadius * 0.85;
       if ((x - loc.x) ** 2 + (z - loc.z) ** 2 < r * r) return { valid: false, reason: '유적 근처에는 지을 수 없습니다' };
@@ -614,8 +630,8 @@ export class BuildSystem {
   private clashCheck(def: BuildableDef, x: number, y: number, z: number, candBoxes: BoxCollider[], allBoxes: BoxCollider[], ignore?: Set<number>): string | null {
     const game = this.game;
 
-    if (Math.abs(x) > WORLD.size / 2 - 10 || Math.abs(z) > WORLD.size / 2 - 10) return '세계의 끝입니다';
-    if (y < WORLD.waterLevel + 0.05 && def.shape !== 'foundation' && def.shape !== 'bridge') return '물속에는 지을 수 없습니다';
+    if (this.outOfWorld(x, z)) return '세계의 끝입니다';
+    if (y < WORLD.waterLevel + 0.05 && def.shape !== 'foundation' && def.shape !== 'bridge' && def.shape !== 'dock') return '물속에는 지을 수 없습니다';
     for (const loc of LOCATIONS) {
       const r = loc.kind === 'camp' ? 9 : loc.flatRadius * 0.85;
       if ((x - loc.x) ** 2 + (z - loc.z) ** 2 < r * r) return '유적 근처에는 지을 수 없습니다';

@@ -29,6 +29,8 @@ const BUFF_INFO: Record<string, { name: string; icon: string }> = {
   slow: { name: '둔화', icon: '❄' },
   riposte: { name: '반격 (다음 공격 치명타)', icon: '⚔' },
   rested: { name: '휴식 (회복 증가, 경험치 +10%)', icon: '☕' },
+  fire_ward: { name: '화염 저항 (용암·불 피해 절반)', icon: '🔥' },
+  wet: { name: '젖음 (스태미나 회복 감소)', icon: '💧' },
 };
 
 function StatusPanel() {

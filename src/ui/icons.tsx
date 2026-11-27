@@ -216,6 +216,16 @@ function shapeSvg(shape: string, c1: string, c2: string): ReactElement {
           <path d="M16 21 L20 27 M23 19 L27 26 M30 20 L33 26" stroke={c2} strokeWidth="2.5" strokeLinecap="round" />
         </g>
       );
+    case 'boat':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M5 30 H43 L37 40 H11 Z" fill={c1} />
+          <path d="M8 33 H40" stroke="rgba(0,0,0,0.3)" />
+          <path d="M24 30 V6" strokeWidth="2" />
+          <path d="M25 8 L38 26 H25 Z" fill={c2} />
+          <path d="M23 10 L13 26 H23 Z" fill={c2} opacity="0.85" />
+        </g>
+      );
     case 'plank':
       return (
         <g stroke={stroke} strokeWidth="1.3">

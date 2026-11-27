@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, WORLD } from '../config';
+import { MAP_REGION, PLAYER, WORLD } from '../config';
 import { ITEMS } from '../data/items';
 import { NODES } from '../data/nodes';
 import { angleDiff, dampAngle } from '../core/math';
@@ -358,11 +358,12 @@ export class Player {
     } else {
       moveBody(this.body, dt, game.terrain, game.colliders, PLAYER.gravity);
     }
-    // keep the player on the island (the crypt interior lives outside the island bounds)
+    // keep the player inside the sea chart (the crypt interior lives outside it)
     if (!game.inDungeon) {
-      const lim = WORLD.size / 2 - 12;
-      this.body.pos.x = Math.max(-lim, Math.min(lim, this.body.pos.x));
-      this.body.pos.z = Math.max(-lim, Math.min(lim, this.body.pos.z));
+      const M = MAP_REGION;
+      const lim = M.size / 2 - 20;
+      this.body.pos.x = Math.max(M.cx - lim, Math.min(M.cx + lim, this.body.pos.x));
+      this.body.pos.z = Math.max(M.cz - lim, Math.min(M.cz + lim, this.body.pos.z));
     }
 
     // Actions

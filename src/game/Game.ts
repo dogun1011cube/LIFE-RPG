@@ -284,7 +284,7 @@ export class Game {
     this.villagers = new VillagerManager(this);
     this.scene.add(this.villagers.group);
     await this.step('지도를 그리는 중...', 0.9);
-    this.mapImage = renderMapImage(this.terrain, 512);
+    this.mapImage = renderMapImage(this.terrain, 1024);
     this.applySettings();
     // place the player at the camp for the menu backdrop
     this.state.player.y = this.terrain.heightAt(this.state.player.x, this.state.player.z);
@@ -1447,7 +1447,7 @@ export class Game {
     const power = def.tool === 'hand' ? 999 : tool ? tool.power : 1;
     node.hp -= power;
     const at = new THREE.Vector3(node.x, node.y + (def.tool === 'axe' ? 1.4 : 0.7), node.z);
-    const color = { oak: 0xa8743f, pine: 0x8a5a32, birch: 0xe4e0d4, rock: 0x9a958c, copper: 0xe0823e, crystal: 0x5fe0f0, bush: 0xd8283e, fiber: 0xa9c45a }[node.type];
+    const color: number = { oak: 0xa8743f, pine: 0x8a5a32, birch: 0xe4e0d4, rock: 0x9a958c, copper: 0xe0823e, crystal: 0x5fe0f0, bush: 0xd8283e, fiber: 0xa9c45a, charred: 0x3a3028, iron: 0xb8b8c0, obsidian: 0x5a3a8a, emberbush: 0xff7a2a }[node.type];
     this.particles.burst(at, color, 9, 3.2, 0.09);
     this.audio.play(def.tool === 'axe' ? 'chop' : def.tool === 'pickaxe' ? 'mine' : 'pick');
     this.resources.shake(node);

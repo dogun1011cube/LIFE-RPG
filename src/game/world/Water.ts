@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD } from '../config';
+import { MAP_REGION, WORLD } from '../config';
 import type { Terrain } from './Terrain';
 import type { Environment } from './Environment';
 
@@ -19,6 +19,7 @@ const FRAG = /* glsl */ `
 uniform float uTime;
 uniform sampler2D uDepth;
 uniform float uWorldSize;
+uniform vec2 uMapCenter;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uSkyColor;
@@ -29,7 +30,7 @@ varying vec3 vWorld;
 #include <common>
 #include <fog_pars_fragment>
 void main() {
-  vec2 uv = vWorld.xz / uWorldSize + 0.5;
+  vec2 uv = (vWorld.xz - uMapCenter) / uWorldSize + 0.5;
   float depth = 1.0;
   if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) depth = texture2D(uDepth, uv).r;
   vec2 p = vWorld.xz;
@@ -59,12 +60,12 @@ export class Water {
   private t = 0;
 
   constructor(terrain: Terrain) {
-    const N = 256;
+    const N = 512;
     const data = new Uint8Array(N * N * 4);
     for (let j = 0; j < N; j++) {
       for (let i = 0; i < N; i++) {
-        const x = ((i + 0.5) / N - 0.5) * WORLD.size;
-        const z = ((j + 0.5) / N - 0.5) * WORLD.size;
+        const x = MAP_REGION.cx + ((i + 0.5) / N - 0.5) * MAP_REGION.size;
+        const z = MAP_REGION.cz + ((j + 0.5) / N - 0.5) * MAP_REGION.size;
         const depth = Math.min(1, Math.max(0, (WORLD.waterLevel - terrain.heightAt(x, z)) / 10));
         const k = (j * N + i) * 4;
         data[k] = data[k + 1] = data[k + 2] = Math.round(depth * 255);
@@ -84,7 +85,8 @@ export class Water {
         {
           uTime: { value: 0 },
           uDepth: { value: null },
-          uWorldSize: { value: WORLD.size },
+          uWorldSize: { value: MAP_REGION.size },
+          uMapCenter: { value: new THREE.Vector2(MAP_REGION.cx, MAP_REGION.cz) },
           uSunDir: { value: new THREE.Vector3(0, 1, 0) },
           uSunColor: { value: new THREE.Color(1, 1, 1) },
           uSkyColor: { value: new THREE.Color(0.6, 0.8, 1) },
@@ -98,7 +100,7 @@ export class Water {
       depthWrite: false,
     });
     this.mat.uniforms.uDepth.value = tex;
-    const geo = new THREE.PlaneGeometry(2600, 2600, 1, 1);
+    const geo = new THREE.PlaneGeometry(4200, 4200, 1, 1);
     geo.rotateX(-Math.PI / 2);
     this.mesh = new THREE.Mesh(geo, this.mat);
     this.mesh.position.y = WORLD.waterLevel;

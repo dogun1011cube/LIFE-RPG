@@ -46,7 +46,8 @@ export type BuildShape =
   | 'archer_tower'
   | 'house_wood'
   | 'house_stone'
-  | 'fountain';
+  | 'fountain'
+  | 'dock';
 
 export interface BuildableDef {
   id: string;
@@ -113,6 +114,7 @@ export const BUILDABLES: BuildableDef[] = [
   { id: 'stone_stairs', name: '석조 계단', desc: '돌로 만든 계단.', category: 'stone', shape: 'stairs', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 7 }], unlock: STONE },
   { id: 'stone_pillar', name: '석조 기둥', desc: '돌기둥.', category: 'stone', shape: 'pillar', material: 'stone', snap: 'corner', cost: [{ item: 'stone', qty: 3 }], unlock: STONE },
   { id: 'wood_bridge', name: '나무 다리', desc: '폭 2m, 길이 6m의 판자 다리. 양쪽 끝 중 한쪽만 땅에 닿아도 설치할 수 있다.', category: 'path', shape: 'bridge', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 16 }, { item: 'fiber', qty: 6 }], unlock: STONE },
+  { id: 'dock', name: '선착장', desc: '바다로 뻗은 나무 부두. 한쪽 끝은 땅에, 다른 끝은 물 위에 놓아야 한다. 배를 대고 띄우는 곳이며, 마을 반경 안에 있으면 교역선이 들른다.', category: 'path', shape: 'dock', material: 'wood', snap: 'free', cost: [{ item: 'wood', qty: 30 }, { item: 'fiber', qty: 10 }, { item: 'stone', qty: 6 }], unlock: [{ type: 'level', level: 5 }], light: { color: 0xffc070, intensity: 8, distance: 12 }, reach: 3 },
   { id: 'road_dirt', name: '흙길', desc: '지형을 따라 깔리는 길. 길 위에서는 이동 속도가 빨라진다.', category: 'path', shape: 'road', material: 'wood', snap: 'cell', cost: [{ item: 'stone', qty: 1 }], unlock: START },
   { id: 'road_stone', name: '돌길', desc: '단단한 돌을 깐 길. 길 위에서는 이동 속도가 빨라진다.', category: 'path', shape: 'road', material: 'stone', snap: 'cell', cost: [{ item: 'stone', qty: 3 }], unlock: STONE },
   // Marble (dressed stone bricks)

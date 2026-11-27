@@ -159,7 +159,8 @@ export class EnemyManager {
       const d = 38 + Math.random() * 32;
       const x = p.x + Math.cos(a) * d;
       const z = p.z + Math.sin(a) * d;
-      if (Math.abs(x) > WORLD.size / 2 - 20 || Math.abs(z) > WORLD.size / 2 - 20) continue;
+      const isle = game.terrain.islandOf(x, z);
+      if (!isle || Math.abs(x - isle.cx) > isle.half - 20 || Math.abs(z - isle.cz) > isle.half - 20) continue;
       if (game.terrain.heightAt(x, z) < 1.2) continue;
       const biome = game.terrain.biomeAt(x, z);
       const table = SPAWN_TABLE[biome];

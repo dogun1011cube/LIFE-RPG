@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { WORLD, SPAWN } from '../config';
+import { EMBER_ISLE, MAP_REGION, SPAWN } from '../config';
 import { hash2, mulberry32 } from '../core/Random';
 import { smoothstep } from '../core/math';
-import { NODES, type NodeTypeId } from '../data/nodes';
-import { BIOME, type Terrain } from './Terrain';
+import { NODES, TREE_TYPES, type NodeTypeId } from '../data/nodes';
+import { BIOME, VOLCANO, type Terrain } from './Terrain';
 import type { CollisionWorld, CircleCollider } from './Colliders';
 
 export interface ResourceNode {
@@ -186,7 +186,57 @@ function buildVisuals(): Record<NodeTypeId, PartDef[]> {
   blades.push(paint(at(new THREE.ConeGeometry(0.06, 0.25, 5), 0.05, 1.35, 0.02), 0xd6c27a, 90, 0.1));
   const fiber = merge(blades);
 
+  // ── 잿불 섬 nodes
+  const charred = merge([
+    paint(at(new THREE.CylinderGeometry(0.12, 0.26, 3.4, 6), 0, 1.7, 0), 0x2e2724, 100, 0.12),
+    paint(at(new THREE.CylinderGeometry(0.04, 0.09, 1.5, 5), 0.5, 2.6, 0, 1, 1, 1, 0, -0.9), 0x2a2420, 101, 0.1),
+    paint(at(new THREE.CylinderGeometry(0.035, 0.08, 1.3, 5), -0.45, 2.9, 0.2, 1, 1, 1, 0.3, 0.8), 0x2a2420, 102, 0.1),
+    paint(at(new THREE.CylinderGeometry(0.03, 0.06, 1.0, 5), 0.1, 3.5, -0.4, 1, 1, 1, -0.7, 0.2), 0x332a25, 103, 0.1),
+    paint(at(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 6), 0, 3.42, 0), 0xb04a1a, 104, 0.05),
+  ]);
+  const charredStump = merge([paint(at(new THREE.CylinderGeometry(0.2, 0.28, 0.4, 6), 0, 0.2, 0), 0x2e2724, 105, 0.08)]);
+  const ironChunks: THREE.BufferGeometry[] = [paint(rockGeo(), 0x5e5a56, 110, 0.1)];
+  const irng = mulberry32(111);
+  for (let i = 0; i < 8; i++) {
+    const a = irng() * Math.PI * 2;
+    const r = 0.72 + irng() * 0.38;
+    ironChunks.push(paint(at(new THREE.BoxGeometry(0.28, 0.2, 0.22), Math.cos(a) * r, 0.3 + irng() * 0.7, Math.sin(a) * r, 1, 1, 1, irng(), irng()), i % 3 ? 0xa65a3a : 0xb8b8c0, 112 + i, 0.12));
+  }
+  const iron = merge(ironChunks);
+  const obsGeos: THREE.BufferGeometry[] = [paint(jitter(at(new THREE.DodecahedronGeometry(0.7, 0), 0, 0.15, 0, 1.3, 0.45, 1.2), 0.2, 120), 0x2a2622, 121, 0.08)];
+  const orng = mulberry32(122);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + orng();
+    const r = i === 0 ? 0 : 0.3 + orng() * 0.35;
+    const h = i === 0 ? 1.5 : 0.6 + orng() * 0.8;
+    obsGeos.push(paint(at(new THREE.ConeGeometry(0.22, h * 1.6, 4), Math.cos(a) * r, h * 0.6, Math.sin(a) * r, 1, 1, 1, (orng() - 0.5) * 0.7, (orng() - 0.5) * 0.7), 0x1a1424, 123 + i, 0.15));
+  }
+  const obsidian = merge(obsGeos);
+  const obsMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.1, metalness: 0.35, emissive: new THREE.Color(0x3a1a5a), emissiveIntensity: 0.35 });
+  const emberBody = merge([
+    paint(jitter(at(new THREE.IcosahedronGeometry(0.55, 1), 0, 0.45, 0), 0.3, 130), 0x4a3a28, 130),
+    paint(jitter(at(new THREE.IcosahedronGeometry(0.42, 1), 0.4, 0.36, 0.12), 0.3, 131), 0x55402a, 131),
+  ]);
+  const emberFruits: THREE.BufferGeometry[] = [];
+  const er = mulberry32(132);
+  for (let i = 0; i < 9; i++) {
+    const a = er() * Math.PI * 2;
+    emberFruits.push(paint(at(new THREE.IcosahedronGeometry(0.09, 0), Math.cos(a) * 0.5, 0.35 + er() * 0.45, Math.sin(a) * 0.45), 0xff7a2a, 133 + i, 0.15));
+  }
+  const emberFruit = merge(emberFruits);
+  const glowMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.5, emissive: new THREE.Color(0xff5a1a), emissiveIntensity: 1.1 });
+
   return {
+    charred: [
+      { geo: charred, mat: solid, when: 'alive', shadow: true },
+      { geo: charredStump, mat: solid, when: 'depleted', shadow: false },
+    ],
+    iron: [{ geo: iron, mat: solid, when: 'alive', shadow: true }],
+    obsidian: [{ geo: obsidian, mat: obsMat, when: 'alive', shadow: true }],
+    emberbush: [
+      { geo: emberBody, mat: solid, when: 'always', shadow: true },
+      { geo: emberFruit, mat: glowMat, when: 'alive', shadow: false },
+    ],
     oak: [
       { geo: oak, mat: foliage, when: 'alive', shadow: true },
       { geo: stump, mat: solid, when: 'depleted', shadow: false },
@@ -211,7 +261,9 @@ function buildVisuals(): Record<NodeTypeId, PartDef[]> {
 }
 
 const CHUNK = 100;
-const CHUNKS_PER_SIDE = Math.ceil(WORLD.size / CHUNK);
+const CHUNKS_PER_SIDE = Math.ceil(MAP_REGION.size / CHUNK);
+const CX0 = MAP_REGION.cx - MAP_REGION.size / 2;
+const CZ0 = MAP_REGION.cz - MAP_REGION.size / 2;
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 
 interface Faller {
@@ -252,7 +304,8 @@ export class ResourceSystem {
   }
 
   private canPlace(x: number, z: number, minH = 1.3): boolean {
-    if (Math.abs(x) > WORLD.size / 2 - 8 || Math.abs(z) > WORLD.size / 2 - 8) return false;
+    const isle = this.terrain.islandOf(x, z);
+    if (!isle || Math.abs(x - isle.cx) > isle.half - 8 || Math.abs(z - isle.cz) > isle.half - 8) return false;
     if (this.terrain.heightAt(x, z) < minH) return false;
     for (const a of this.avoid) if ((x - a.x) ** 2 + (z - a.z) ** 2 < a.r * a.r) return false;
     return true;
@@ -261,10 +314,10 @@ export class ResourceSystem {
   private add(type: NodeTypeId, x: number, z: number, rot: number, scale: number) {
     const id = this.nodes.length;
     const y = this.terrain.heightAt(x, z);
-    const half = WORLD.size / 2;
-    const cx = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor((x + half) / CHUNK)));
-    const cz = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor((z + half) / CHUNK)));
-    const node: ResourceNode = { id, type, x, y: y - (type === 'rock' || type === 'copper' ? 0.15 * scale : 0.05), z, rot, scale, hp: NODES[type].hp, alive: true, respawnAt: 0, chunk: cx + cz * CHUNKS_PER_SIDE, slot: 0, collider: null };
+    const cx = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor((x - CX0) / CHUNK)));
+    const cz = Math.min(CHUNKS_PER_SIDE - 1, Math.max(0, Math.floor((z - CZ0) / CHUNK)));
+    const sunk = type === 'rock' || type === 'copper' || type === 'iron' || type === 'obsidian';
+    const node: ResourceNode = { id, type, x, y: y - (sunk ? 0.15 * scale : 0.05), z, rot, scale, hp: NODES[type].hp, alive: true, respawnAt: 0, chunk: cx + cz * CHUNKS_PER_SIDE, slot: 0, collider: null };
     this.nodes.push(node);
     const k = this.gridKey(x, z);
     let arr = this.grid.get(k);
@@ -280,7 +333,7 @@ export class ResourceSystem {
   }
 
   private generate() {
-    const half = WORLD.size / 2;
+    const half = this.terrain.home.half;
     const step = 5;
     const seed = this.seed;
     let ix = 0;
@@ -363,6 +416,52 @@ export class ResourceSystem {
       if (this.terrain.heightAt(x, z) < 1.5) continue;
       this.add('crystal', x, z, rng() * Math.PI * 2, 0.9 + rng() * 0.5);
     }
+    // Appended after the home island so saved node ids stay valid
+    this.generateEmber();
+  }
+
+  /** The volcanic isle: charred trees, iron on the slopes, obsidian around the crater. */
+  private generateEmber() {
+    const E = EMBER_ISLE;
+    const half = E.size / 2;
+    const step = 5;
+    const seed = this.seed + 5000;
+    let ix = 0;
+    for (let gx = E.cx - half + step / 2; gx < E.cx + half; gx += step, ix++) {
+      let iz = 0;
+      for (let gz = E.cz - half + step / 2; gz < E.cz + half; gz += step, iz++) {
+        const r1 = hash2(ix, iz, seed + 11);
+        const x = gx + (hash2(ix, iz, seed + 12) - 0.5) * step * 0.9;
+        const z = gz + (hash2(ix, iz, seed + 13) - 0.5) * step * 0.9;
+        if (!this.canPlace(x, z)) continue;
+        const biome = this.terrain.biomeAt(x, z);
+        const slope = this.terrain.slopeAt(x, z);
+        const h = this.terrain.heightAt(x, z);
+        const vd = Math.hypot(x - VOLCANO.x, z - VOLCANO.z);
+        if (vd < VOLCANO.craterR + 3) continue; // keep the crater arena clear
+        let type: NodeTypeId | null = null;
+        if (biome === BIOME.ash) {
+          const grass = this.terrain.forestAt(x, z);
+          if (r1 < 0.045 + Math.max(0, grass) * 0.12) type = 'charred';
+          else if (r1 < 0.08) type = 'rock';
+          else if (r1 < 0.1) type = 'iron';
+          else if (r1 < 0.125 && grass > 0.05) type = 'emberbush';
+          else if (r1 < 0.16 && grass > 0.0) type = 'fiber';
+        } else if (biome === BIOME.volcano) {
+          if (r1 < 0.05) type = 'rock';
+          else if (r1 < 0.1) type = 'iron';
+          else if (r1 < 0.13 && h > 30) type = 'obsidian';
+        } else if (biome === BIOME.blacksand) {
+          if (r1 < 0.012) type = 'rock';
+          else if (r1 < 0.03) type = 'fiber';
+        }
+        if (!type) continue;
+        if (type === 'charred' && slope > 0.85) continue;
+        const sc = hash2(ix, iz, seed + 16);
+        const scale = type === 'charred' ? 0.8 + sc * 0.5 : type === 'rock' || type === 'iron' ? 0.65 + sc * 0.6 : 0.85 + sc * 0.4;
+        this.add(type, x, z, hash2(ix, iz, seed + 15) * Math.PI * 2, scale);
+      }
+    }
   }
 
   private buildMeshes() {
@@ -406,7 +505,7 @@ export class ResourceSystem {
     const def = NODES[n.type];
     if (def.collider <= 0) return;
     if (on && !n.collider) {
-      const tall = n.type === 'oak' || n.type === 'pine' || n.type === 'birch';
+      const tall = TREE_TYPES.includes(n.type);
       n.collider = { kind: 'circle', x: n.x, z: n.z, r: def.collider * n.scale, minY: n.y - 1, maxY: n.y + (tall ? 6 : 1.3 * n.scale), owner: n };
       this.colliders.add(n.collider);
     } else if (!on && n.collider) {
@@ -461,7 +560,7 @@ export class ResourceSystem {
     n.respawnAt = playTime + NODES[n.type].respawn;
     this.shaking.delete(n);
     this.setCollider(n, false);
-    const isTree = n.type === 'oak' || n.type === 'pine' || n.type === 'birch';
+    const isTree = TREE_TYPES.includes(n.type);
     if (isTree) {
       const part = this.visuals[n.type][0];
       const mesh = new THREE.Mesh(part.geo, part.mat);
@@ -567,11 +666,10 @@ export class ResourceSystem {
     this.cullTimer -= dt;
     if (this.cullTimer <= 0) {
       this.cullTimer = 0.5;
-      const half = WORLD.size / 2;
       const lim = viewDistance + CHUNK * 0.75;
       for (let c = 0; c < this.chunkGroups.length; c++) {
-        const cx = (c % CHUNKS_PER_SIDE) * CHUNK - half + CHUNK / 2;
-        const cz = Math.floor(c / CHUNKS_PER_SIDE) * CHUNK - half + CHUNK / 2;
+        const cx = (c % CHUNKS_PER_SIDE) * CHUNK + CX0 + CHUNK / 2;
+        const cz = Math.floor(c / CHUNKS_PER_SIDE) * CHUNK + CZ0 + CHUNK / 2;
         this.chunkGroups[c].visible = Math.hypot(cx - focus.x, cz - focus.z) < lim;
       }
     }

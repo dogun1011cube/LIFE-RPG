@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD } from '../config';
+import { MAP_REGION, WORLD } from '../config';
 import type { Terrain } from '../world/Terrain';
 
 /** Pre-renders a shaded overview image of the terrain used by the minimap and world map. */
@@ -15,8 +15,8 @@ export function renderMapImage(terrain: Terrain, size = 512): HTMLCanvasElement 
   const deep = new THREE.Color(0x163f5c);
   for (let j = 0; j < size; j++) {
     for (let i = 0; i < size; i++) {
-      const x = ((i + 0.5) / size - 0.5) * WORLD.size;
-      const z = ((j + 0.5) / size - 0.5) * WORLD.size;
+      const x = MAP_REGION.cx + ((i + 0.5) / size - 0.5) * MAP_REGION.size;
+      const z = MAP_REGION.cz + ((j + 0.5) / size - 0.5) * MAP_REGION.size;
       const h = terrain.heightAt(x, z);
       if (h < WORLD.waterLevel) {
         const d = Math.min(1, (WORLD.waterLevel - h) / 10);
@@ -43,5 +43,5 @@ export function renderMapImage(terrain: Terrain, size = 512): HTMLCanvasElement 
 
 /** World (x,z) -> normalized map coordinates [0,1]. */
 export function worldToMap(x: number, z: number): [number, number] {
-  return [x / WORLD.size + 0.5, z / WORLD.size + 0.5];
+  return [(x - MAP_REGION.cx) / MAP_REGION.size + 0.5, (z - MAP_REGION.cz) / MAP_REGION.size + 0.5];
 }

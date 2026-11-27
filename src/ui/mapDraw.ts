@@ -1,4 +1,4 @@
-import { WORLD } from '../game/config';
+import { MAP_REGION } from '../game/config';
 import { LOCATIONS } from '../game/data/locations';
 import { EXPLORE_RES } from '../game/systems/Discovery';
 import type { Game } from '../game/Game';
@@ -42,16 +42,19 @@ export function drawWorldMap(ctx: CanvasRenderingContext2D, game: Game, cx: numb
   ctx.fillStyle = '#16150f';
   ctx.fillRect(0, 0, W, H);
   if (!img) return;
-  const pxPerM = img.width / WORLD.size;
+  const M = MAP_REGION;
+  const x0 = M.cx - M.size / 2;
+  const z0 = M.cz - M.size / 2;
+  const pxPerM = img.width / M.size;
   const spanZ = span * (H / W);
-  const sx = (cx + WORLD.size / 2) * pxPerM - (span * pxPerM) / 2;
-  const sy = (cz + WORLD.size / 2) * pxPerM - (spanZ * pxPerM) / 2;
+  const sx = (cx - x0) * pxPerM - (span * pxPerM) / 2;
+  const sy = (cz - z0) * pxPerM - (spanZ * pxPerM) / 2;
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(img, sx, sy, span * pxPerM, spanZ * pxPerM, 0, 0, W, H);
   if (opts.fog) {
     const fog = updateFog(game);
-    const f = EXPLORE_RES / WORLD.size;
-    ctx.drawImage(fog, (cx + WORLD.size / 2) * f - (span * f) / 2, (cz + WORLD.size / 2) * f - (spanZ * f) / 2, span * f, spanZ * f, 0, 0, W, H);
+    const f = EXPLORE_RES / M.size;
+    ctx.drawImage(fog, (cx - x0) * f - (span * f) / 2, (cz - z0) * f - (spanZ * f) / 2, span * f, spanZ * f, 0, 0, W, H);
   }
   const toX = (x: number) => ((x - cx) / span) * W + W / 2;
   const toY = (z: number) => ((z - cz) / spanZ) * H + H / 2;

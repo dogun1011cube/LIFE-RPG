@@ -1,5 +1,8 @@
 /** Harvestable resource node definitions. */
-export type NodeTypeId = 'oak' | 'pine' | 'birch' | 'rock' | 'copper' | 'crystal' | 'bush' | 'fiber';
+export type NodeTypeId = 'oak' | 'pine' | 'birch' | 'rock' | 'copper' | 'crystal' | 'bush' | 'fiber' | 'charred' | 'iron' | 'obsidian' | 'emberbush';
+
+/** Trees fall over when depleted and leave a stump. */
+export const TREE_TYPES: NodeTypeId[] = ['oak', 'pine', 'birch', 'charred'];
 
 export interface NodeDrop {
   item: string;
@@ -30,4 +33,9 @@ export const NODES: Record<NodeTypeId, NodeDef> = {
   crystal: { id: 'crystal', name: '공명 수정 광맥', verb: '채광', tool: 'pickaxe', minTier: 2, hp: 10, drops: [{ item: 'crystal', perHit: [0, 1], final: [1, 1] }], respawn: 900, collider: 0.7, xp: 12 },
   bush: { id: 'bush', name: '산딸기 덤불', verb: '따기', tool: 'hand', minTier: 0, hp: 1, drops: [{ item: 'berry', perHit: [2, 4] }], respawn: 180, collider: 0, xp: 1 },
   fiber: { id: 'fiber', name: '억센 풀', verb: '뜯기', tool: 'hand', minTier: 0, hp: 1, drops: [{ item: 'fiber', perHit: [2, 3] }], respawn: 150, collider: 0, xp: 1 },
+  // ── 잿불 섬
+  charred: { id: 'charred', name: '그을린 나무', verb: '베기', tool: 'axe', minTier: 0, hp: 5, drops: [{ item: 'wood', perHit: [1, 1], final: [1, 2] }, { item: 'charcoal', perHit: [0, 1], final: [1, 2] }], respawn: 360, collider: 0.35, xp: 4 },
+  iron: { id: 'iron', name: '철광맥', verb: '채광', tool: 'pickaxe', minTier: 2, hp: 11, drops: [{ item: 'iron_ore', perHit: [1, 1], final: [1, 2] }, { item: 'stone', perHit: [0, 1] }], respawn: 600, collider: 0.95, xp: 10 },
+  obsidian: { id: 'obsidian', name: '흑요석', verb: '채광', tool: 'pickaxe', minTier: 3, hp: 13, drops: [{ item: 'obsidian', perHit: [0, 1], final: [1, 2] }], respawn: 900, collider: 0.8, xp: 16 },
+  emberbush: { id: 'emberbush', name: '불씨 덤불', verb: '따기', tool: 'hand', minTier: 0, hp: 1, drops: [{ item: 'ember_fruit', perHit: [1, 2] }], respawn: 240, collider: 0, xp: 2 },
 };

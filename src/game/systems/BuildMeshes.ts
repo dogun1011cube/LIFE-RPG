@@ -393,6 +393,24 @@ function makeTemplate(def: BuildableDef): PieceTemplate {
         bounds: boundsOf(parts),
       };
     }
+    case 'dock': {
+      // land end at local z = -4, sea end at z = +6
+      const parts: PieceTemplate['parts'] = [{ geo: bx(-1.2, 0, -4, 1.2, 0.22, 6), mat: m.wood }];
+      for (let i = 0; i < 9; i++) parts.push({ geo: bx(-1.2, 0.22, -3.9 + i * 1.1, 1.2, 0.24, -3.86 + i * 1.1, 1), mat: m.woodDark });
+      for (const z of [-3.8, -1.3, 1.2, 3.7, 5.8]) for (const x of [-1.1, 1.1]) parts.push({ geo: new THREE.CylinderGeometry(0.12, 0.14, 4.2, 7).translate(x, -1.4, z), mat: m.woodDark });
+      for (const x of [-1.1, 1.1]) parts.push({ geo: new THREE.CylinderGeometry(0.03, 0.03, 9.6, 5).rotateX(Math.PI / 2).translate(x, 0.75, 1), mat: m.cloth });
+      // lantern at the sea end, crates at the land end
+      parts.push({ geo: bx(1.0, 0.22, 5.6, 1.16, 2.4, 5.76, 1), mat: m.woodDark });
+      parts.push({ geo: bx(0.85, 2.0, 5.5, 1.3, 2.35, 5.9, 1), mat: m.lamp });
+      parts.push({ geo: bx(-1.1, 0.22, -3.8, -0.4, 0.92, -3.1, 1), mat: m.wood });
+      parts.push({ geo: new THREE.CylinderGeometry(0.28, 0.25, 0.7, 10).translate(-0.6, 0.57, -2.6), mat: m.woodDark });
+      return {
+        parts,
+        colliders: [col(-1.2, -3.5, -4, 1.2, 0.24, 6), col(-1.1, 0.22, -3.8, -0.4, 0.92, -3.1)],
+        light: [1.07, 2.2, 5.7],
+        bounds: boundsOf(parts),
+      };
+    }
     case 'castle_wall': {
       const H = 5;
       const th = 1.0;

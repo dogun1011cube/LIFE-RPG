@@ -9,6 +9,15 @@ export const WORLD = {
 
 export const SPAWN = { x: 0, z: 150 };
 
+/** The second island (PHASE 6): a volcanic isle across the southern sea. */
+export const EMBER_ISLE = { cx: 60, cz: 980, size: 480, res: 192 };
+
+/**
+ * Square area covered by the world map, fog of war and water depth: both islands and the sea between.
+ * Chosen so the old 128x128 fog-of-war cells (6.25 m) line up exactly with the new grid.
+ */
+export const MAP_REGION = { cx: 0, cz: 425, size: 1700 };
+
 export const BUILD = {
   grid: 2, // building grid cell size (m)
   level: 2.5, // wall height (m)

@@ -13,6 +13,7 @@ import type { Slot } from '../../game/state/types';
 import { SKILLS, TREE_INFO, SKILL_KEY_LABELS, type SkillTree } from '../../game/data/skills';
 import { rank } from '../../game/systems/Stats';
 import { DUNGEON_ORIGIN } from '../../game/world/Dungeon';
+import { MAP_REGION } from '../../game/config';
 import { JOBS, JOB_ORDER, TIERS, MARKET_STOCK, FOOD_VALUE, type JobId } from '../../game/data/village';
 import { CivTab } from './CivTab';
 
@@ -482,11 +483,13 @@ function MapTab() {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const drag = useRef<{ x: number; y: number; cx: number; cz: number } | null>(null);
-  const span = (game.inDungeon ? 90 : 800) / zoom;
   const pp = game.player.body.pos;
   const inD = game.inDungeon;
-  const cx = center ? center[0] : inD ? DUNGEON_ORIGIN.x : zoom === 1 ? 0 : pp.x;
-  const cz = center ? center[1] : inD ? DUNGEON_ORIGIN.z + 34 : zoom === 1 ? 0 : pp.z;
+  // zoom 1 shows the island you are on; zoom out further for the whole sea chart
+  const isle = game.terrain.islandOf(pp.x, pp.z) ?? game.terrain.home;
+  const span = (inD ? 90 : zoom < 1 ? MAP_REGION.size : isle.size) / Math.max(1, zoom);
+  const cx = center ? center[0] : inD ? DUNGEON_ORIGIN.x : zoom < 1 ? MAP_REGION.cx : zoom === 1 ? isle.cx : pp.x;
+  const cz = center ? center[1] : inD ? DUNGEON_ORIGIN.z + 34 : zoom < 1 ? MAP_REGION.cz : zoom === 1 ? isle.cz : pp.z;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -501,7 +504,7 @@ function MapTab() {
           width={620}
           height={620}
           className="map-canvas"
-          onWheel={(e) => setZoom((z) => Math.max(1, Math.min(6, z * (e.deltaY < 0 ? 1.25 : 0.8))))}
+          onWheel={(e) => setZoom((z) => (z < 1 ? (e.deltaY < 0 ? 1 : z) : z <= 1 && e.deltaY > 0 ? 0.5 : Math.max(1, Math.min(6, z * (e.deltaY < 0 ? 1.25 : 0.8)))))}
           onMouseDown={(e) => (drag.current = { x: e.clientX, y: e.clientY, cx, cz })}
           onMouseMove={(e) => {
             if (!drag.current) return;
@@ -515,8 +518,11 @@ function MapTab() {
           <button className="btn tiny" onClick={() => setZoom((z) => Math.min(6, z * 1.5))}>
             +
           </button>
-          <button className="btn tiny" onClick={() => setZoom((z) => Math.max(1, z / 1.5))}>
+          <button className="btn tiny" onClick={() => setZoom((z) => (z <= 1 ? 0.5 : Math.max(1, z / 1.5)))}>
             −
+          </button>
+          <button className="btn tiny" title="해도: 두 섬과 바다 전체" onClick={() => (setZoom(0.5), setCenter(null))}>
+            🗺
           </button>
           <button className="btn tiny" onClick={() => setCenter(null)}>
             ◎
