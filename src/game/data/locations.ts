@@ -1,6 +1,6 @@
 import type { Cost } from './recipes';
 
-export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck' | 'crypt';
+export type LocationKind = 'camp' | 'tower' | 'stones' | 'shrine' | 'crystal' | 'wreck' | 'crypt' | 'landing' | 'outpost' | 'crater';
 
 export interface LocationDef {
   id: string;
@@ -85,6 +85,34 @@ export const LOCATIONS: LocationDef[] = [
         '"이곳에 에테르눔의 마지막 왕이 잠들다. 묘지기가 그의 검을 지키니, 산 자는 돌아가라."\n\n' +
         '문 옆에는 해, 달, 별이 새겨진 세 개의 문양이 있다. 아래쪽 작은 글씨: "빛이 태어나 저물고, 마침내 밤하늘을 수놓는다."\n\n' +
         '석판 뒤에서 오래된 제작 기록을 발견했다. 망각의 서를 만드는 법이다.',
+    },
+  },
+  // ── 잿불 섬 (PHASE 6) ─────────────────────────────────────
+  {
+    id: 'ember_landing', name: '검은 모래 상륙지', subtitle: '잿불 섬에 닿은 첫 발자국', kind: 'landing', x: 52, z: 842, discoverRadius: 20, flatRadius: 13, flatHeight: 1.7, xp: 120, reveals: 'ember_outpost',
+    lore: {
+      title: '난파된 탐험대의 표지판',
+      text:
+        '"잿불 섬 탐험대 — 서쪽 평원에 야영지를 세움. 불의 산에는 다가가지 말 것."\n\n' +
+        '표지판 아래에 누군가 급하게 덧붙여 적었다. "산비탈의 흑요석 화로 셋에 불이 붙으면, 분화구의 봉인이 깨어난다. 그것만은 막아야 한다."',
+    },
+  },
+  {
+    id: 'ember_outpost', name: '버려진 탐험대 야영지', subtitle: '서둘러 떠난 흔적이 남은 곳', kind: 'outpost', x: -56, z: 986, discoverRadius: 20, flatRadius: 14, xp: 120, reveals: 'ember_crater',
+    lore: {
+      title: '탐험대장의 마지막 일지',
+      text:
+        '철이다. 이 섬의 산비탈은 온통 붉은 철광맥이다. 구리 곡괭이로도 캘 수 있지만, 숯불이 있어야 녹는다. 그을린 나무에서 숯을 얻자.\n\n' +
+        '밤마다 불꽃 정령이 내려온다. 불씨 열매를 먹으면 열기를 견딜 수 있었다.\n\n' +
+        '대원 하나가 화로에 불을 붙였다. 산이 울었다. 분화구 한가운데 돌로 된 거인이 몸을 뒤척인다. 우리는 배로 돌아간다. 다시는 오지 않으리라.',
+    },
+    chest: { items: [{ item: 'iron_ingot', qty: 4 }, { item: 'charcoal', qty: 6 }, { item: 'ember_fruit', qty: 3 }, { item: 'health_potion', qty: 1 }] },
+  },
+  {
+    id: 'ember_crater', name: '불의 분화구', subtitle: '용암 거신이 잠든 곳', kind: 'crater', x: 75, z: 955, discoverRadius: 26, flatRadius: 0, xp: 200,
+    lore: {
+      title: '봉인의 비문',
+      text: '세 개의 불꽃이 깨어나면, 산의 심장도 깨어나리라.\n\n심장을 꺼뜨린 자는 그 불을 손에 넣으리라.',
     },
   },
 ];

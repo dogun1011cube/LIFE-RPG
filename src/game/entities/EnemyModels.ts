@@ -29,15 +29,15 @@ function shadow(g: THREE.Object3D) {
   });
 }
 
-function slime(): EnemyRig {
+function slime(pal = { body: 0x5fd36a, glow: 0x1a5a22, core: 0x2f8a3a, gi: 0.4 }): EnemyRig {
   const root = new THREE.Group();
   const inner = new THREE.Group();
   root.add(inner);
-  const bodyMat = mat(0x5fd36a, 0.25, { transparent: true, opacity: 0.82, emissive: 0x1a5a22, emissiveIntensity: 0.4 });
+  const bodyMat = mat(pal.body, 0.25, { transparent: true, opacity: 0.82, emissive: pal.glow, emissiveIntensity: pal.gi });
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 14), bodyMat);
   body.scale.set(1, 0.78, 1);
   body.position.y = 0.47;
-  const coreMat = mat(0x2f8a3a, 0.5);
+  const coreMat = mat(pal.core, 0.5, pal.gi > 0.6 ? { emissive: pal.core, emissiveIntensity: 1.4 } : {});
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), coreMat);
   core.position.y = 0.42;
   const eyeMat = mat(0x111111, 0.2);
@@ -82,13 +82,13 @@ function slime(): EnemyRig {
   };
 }
 
-function wolf(): EnemyRig {
+function wolf(pal = { fur: 0x7a756e, dark: 0x55514c, eye: 0xffaa33 }): EnemyRig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const fur = mat(0x7a756e, 0.95);
-  const furDark = mat(0x55514c, 0.95);
-  const eyeMat = mat(0xffd27a, 0.3, { emissive: 0xffaa33, emissiveIntensity: 0.8 });
+  const fur = mat(pal.fur, 0.95);
+  const furDark = mat(pal.dark, 0.95);
+  const eyeMat = mat(0xffd27a, 0.3, { emissive: pal.eye, emissiveIntensity: 1.0 });
   const torso = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.46, 1.05, 2, 0.12), fur);
   torso.position.set(0, 0.68, 0);
   const chest = new THREE.Mesh(new RoundedBoxGeometry(0.52, 0.55, 0.45, 2, 0.14), furDark);
@@ -306,15 +306,15 @@ function golem(opts: { color: number; eye: number; horns?: boolean; rune?: numbe
   };
 }
 
-function wisp(): EnemyRig {
+function wisp(pal = { core: 0xb48aff, emissive: 0x8a4aff, shell: 0x3a2266, shellE: 0x4a2a8a, glow: 0x9a6aff }): EnemyRig {
   const root = new THREE.Group();
   const inner = new THREE.Group();
   root.add(inner);
-  const coreMat = mat(0xb48aff, 0.3, { emissive: 0x8a4aff, emissiveIntensity: 2.2 });
+  const coreMat = mat(pal.core, 0.3, { emissive: pal.emissive, emissiveIntensity: 2.2 });
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 1), coreMat);
-  const shellMat = mat(0x3a2266, 0.4, { transparent: true, opacity: 0.55, emissive: 0x4a2a8a, emissiveIntensity: 0.6 });
+  const shellMat = mat(pal.shell, 0.4, { transparent: true, opacity: 0.55, emissive: pal.shellE, emissiveIntensity: 0.6 });
   const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 0), shellMat);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x9a6aff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: pal.glow, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.scale.set(2.4, 2.4, 1);
   inner.add(core, shell, glow);
   const orbs: THREE.Mesh[] = [];
@@ -600,6 +600,22 @@ export function buildEnemyRig(model: EnemyModel, scale: number): EnemyRig {
       break;
     case 'keeper':
       rig = keeper();
+      break;
+    case 'magma_slime':
+      rig = slime({ body: 0xff7a2a, glow: 0xff3a0a, core: 0xffd27a, gi: 0.9 });
+      break;
+    case 'ash_wolf':
+      rig = wolf({ fur: 0x3e3a38, dark: 0x262423, eye: 0xff4a1a });
+      break;
+    case 'lava_golem':
+      rig = golem({ color: 0x4a3a34, eye: 0xff7a2a, rune: 0xff4a1a });
+      break;
+    case 'fire_wisp':
+      rig = wisp({ core: 0xffc27a, emissive: 0xff6a1a, shell: 0x6a2a0a, shellE: 0xaa3a0a, glow: 0xff8a3a });
+      break;
+    case 'titan':
+      rig = golem({ color: 0x2e2420, eye: 0xffaa3a, horns: true, rune: 0xff4a0a });
+      rig.root.scale.setScalar(1.9);
       break;
   }
   if (scale !== 1) rig.root.scale.multiplyScalar(scale);

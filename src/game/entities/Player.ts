@@ -30,6 +30,8 @@ export class Player {
   dead = false;
   deadTime = 0;
   swimming = false;
+  /** sitting in the boat: the boat moves the body, the player only animates */
+  mounted = false;
   running = false;
   gatherNode: ResourceNode | null = null;
   useItemId: string | null = null;
@@ -262,6 +264,19 @@ export class Player {
       else this.cooldowns.set(k, v - dt);
     }
     if (!this.dead) s.mana = Math.min(st.maxMana, (s.mana ?? 0) + st.manaRegen * dt);
+    if (this.mounted && !this.dead) {
+      this.swimming = false;
+      this.action = 'none';
+      this.body.grounded = true;
+      this.model.update(dt, { state: 'idle', speed: 0, run: false, t: 0, combo: 0, tool: null });
+      this.model.root.position.copy(this.body.pos);
+      this.model.root.rotation.y = this.yaw;
+      s.x = this.body.pos.x;
+      s.y = this.body.pos.y;
+      s.z = this.body.pos.z;
+      s.yaw = this.yaw;
+      return;
+    }
 
     // Movement input
     this.moveDir.set(0, 0, 0);

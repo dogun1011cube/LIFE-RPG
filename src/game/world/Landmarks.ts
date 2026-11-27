@@ -4,9 +4,11 @@ import { mulberry32 } from '../core/Random';
 import type { Terrain } from './Terrain';
 import type { CollisionWorld, BoxCollider } from './Colliders';
 import { boxGeo, woodTexture, clothTexture, glowTexture } from './textures';
-import { createCampfire, createChest, ruinStoneMaterial, type Flame } from './props';
+import { createCampfire, createChest, createFlame, ruinStoneMaterial, type Flame } from './props';
+import { BRAZIERS, LAVA_POOLS } from '../data/ember';
+import { VOLCANO } from './Terrain';
 
-export type LandmarkInteractKind = 'lore' | 'chest' | 'altar' | 'station' | 'dungeon';
+export type LandmarkInteractKind = 'lore' | 'chest' | 'altar' | 'station' | 'dungeon' | 'brazier' | 'seal';
 
 export interface LandmarkInteractable {
   id: string;
@@ -38,6 +40,12 @@ export class Landmarks {
   private darkStone = new THREE.MeshStandardMaterial({ color: 0x7d776c, roughness: 0.95 });
   private wood = new THREE.MeshStandardMaterial({ color: 0x9a7048, map: woodTexture('#8a6038'), roughness: 0.9 });
   private time = 0;
+  /** 잿불 섬: braziers (lit by the player), the crater seal, lava pools, smoke */
+  readonly lavaPools = LAVA_POOLS;
+  private brazierFx: { flame: Flame; light: LightSource; lit: boolean }[] = [];
+  private sealMat: THREE.MeshStandardMaterial | null = null;
+  private smoke: THREE.Sprite[] = [];
+  private lavaMats: THREE.MeshStandardMaterial[] = [];
 
   constructor(
     private terrain: Terrain,
@@ -323,6 +331,136 @@ export class Landmarks {
         this.tablet(loc, cx + 4.5, cz + 4.5, -0.5);
         break;
       }
+      case 'landing': {
+        const { group, flame } = createCampfire();
+        group.position.set(cx, base, cz);
+        this.group.add(group);
+        this.flames.push(flame);
+        this.colliders.add({ kind: 'circle', x: cx, z: cz, r: 0.6, minY: base - 1, maxY: base + 0.4, owner: 'landmark' });
+        this.lights.push({ pos: new THREE.Vector3(cx, base + 1, cz), color: 0xff8a3a, intensity: 18, distance: 16 });
+        this.safeZones.push({ x: cx, z: cz, r: 26 });
+        this.interactables.push({ id: 'landing_fire', kind: 'station', locationId: loc.id, pos: new THREE.Vector3(cx, base + 0.5, cz), radius: 2.4, label: '요리하기: 모닥불' });
+        // a wrecked jetty reaching into the sea (to the north)
+        for (let i = 0; i < 7; i++) {
+          const z = cz - 6 - i * 1.4;
+          const plank = new THREE.Mesh(boxGeo(2.2, 0.12, 1.1, 2), this.wood);
+          plank.position.set(cx + (i % 2) * 0.3, Math.max(this.y(cx, z), 0) + 0.35 - i * 0.04, z);
+          plank.rotation.set(0, (rng() - 0.5) * 0.25, (rng() - 0.5) * 0.15);
+          plank.castShadow = true;
+          this.group.add(plank);
+          if (i % 2 === 0) for (const x of [-1, 1]) this.cylinder(0.12, 2.2, cx + x, Math.min(this.y(cx + x, z), 0) - 1.4, z, this.wood, false, 6);
+        }
+        // signpost (lore) and supplies
+        this.tablet(loc, cx + 3.5, cz + 2.5, 2.6);
+        this.box(0.8, 0.8, 0.8, cx - 3.5, this.y(cx - 3.5, cz + 1.5), cz + 1.5, this.wood, 0.4);
+        break;
+      }
+      case 'outpost': {
+        const cloth = new THREE.MeshStandardMaterial({ color: 0xa89878, map: clothTexture('#a89878'), roughness: 0.95, side: THREE.DoubleSide });
+        for (const [ox, oz, ry] of [
+          [-4, -3, 0.4],
+          [4, -4, -0.5],
+          [0, 5, 1.6],
+        ] as const) {
+          const tx = cx + ox;
+          const tz = cz + oz;
+          const ty = this.y(tx, tz);
+          const tent = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 2.8, 3, 1, true), cloth);
+          tent.rotation.z = Math.PI / 2;
+          tent.rotation.y = ry;
+          tent.position.set(tx, ty + 0.75, tz);
+          tent.castShadow = true;
+          this.group.add(tent);
+          this.colliders.add({ kind: 'box', minX: tx - 1.4, maxX: tx + 1.4, minZ: tz - 1.4, maxZ: tz + 1.4, minY: ty - 1, maxY: ty + 2, owner: 'landmark' });
+        }
+        // cold fire pit, crates, a broken cart
+        const pit = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.18, 6, 12), this.darkStone);
+        pit.rotation.x = -Math.PI / 2;
+        pit.position.set(cx, base + 0.1, cz);
+        this.group.add(pit);
+        this.box(0.8, 0.8, 0.8, cx + 2.5, this.y(cx + 2.5, cz + 1), cz + 1, this.wood, 0.2);
+        this.box(0.7, 0.7, 0.7, cx + 3.2, this.y(cx + 3.2, cz + 1.8), cz + 1.8, this.wood, 0.9);
+        this.box(2.4, 0.5, 1.2, cx - 5, this.y(cx - 5, cz + 3) + 0.3, cz + 3, this.wood, 0.7, true, 0.25);
+        this.chest(loc, cx - 1.5, cz - 4.5, 0.2);
+        this.tablet(loc, cx + 1.5, cz + 2.5, -0.4);
+        this.safeZones.push({ x: cx, z: cz, r: 14 });
+        break;
+      }
+      case 'crater': {
+        const floor = VOLCANO.floor;
+        // lava pools on the crater floor
+        for (const p of LAVA_POOLS) {
+          const mat = new THREE.MeshStandardMaterial({ color: 0xff5a1a, emissive: 0xff4a0a, emissiveIntensity: 1.6, roughness: 0.6 });
+          this.lavaMats.push(mat);
+          const pool = new THREE.Mesh(new THREE.CircleGeometry(p.r, 18), mat);
+          pool.rotation.x = -Math.PI / 2;
+          pool.position.set(p.x, this.y(p.x, p.z) + 0.06, p.z);
+          this.group.add(pool);
+          const crust = new THREE.Mesh(new THREE.RingGeometry(p.r, p.r + 0.5, 18), this.darkStone);
+          crust.rotation.x = -Math.PI / 2;
+          crust.position.set(p.x, this.y(p.x, p.z) + 0.05, p.z);
+          this.group.add(crust);
+          this.lights.push({ pos: new THREE.Vector3(p.x, this.y(p.x, p.z) + 1.2, p.z), color: 0xff6a2a, intensity: 14, distance: 12 });
+        }
+        // obsidian spires around the rim
+        const obs = new THREE.MeshStandardMaterial({ color: 0x1e1828, roughness: 0.15, metalness: 0.3, emissive: 0x2a1040, emissiveIntensity: 0.4 });
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2 + 0.2;
+          const x = cx + Math.cos(a) * (VOLCANO.craterR + 2);
+          const z = cz + Math.sin(a) * (VOLCANO.craterR + 2);
+          const h = 2.5 + rng() * 3;
+          const spire = new THREE.Mesh(new THREE.ConeGeometry(0.6, h, 5), obs);
+          spire.position.set(x, this.y(x, z) + h / 2 - 0.3, z);
+          spire.rotation.z = (rng() - 0.5) * 0.3;
+          spire.castShadow = true;
+          this.group.add(spire);
+          this.colliders.add({ kind: 'circle', x, z, r: 0.55, minY: this.y(x, z) - 1, maxY: this.y(x, z) + h, owner: 'landmark' });
+        }
+        // the seal: a rune ring in the middle of the crater
+        this.sealMat = new THREE.MeshStandardMaterial({ color: 0x3a2a24, emissive: 0xff4a0a, emissiveIntensity: 0.15, roughness: 0.5, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 3.0, 32), this.sealMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(cx, floor + 0.08, cz);
+        this.group.add(ring);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const rune = new THREE.Mesh(new THREE.CircleGeometry(0.35, 3), this.sealMat);
+          rune.rotation.x = -Math.PI / 2;
+          rune.rotation.z = a;
+          rune.position.set(cx + Math.cos(a) * 3.8, floor + 0.08, cz + Math.sin(a) * 3.8);
+          this.group.add(rune);
+        }
+        this.interactables.push({ id: 'crater_seal', kind: 'seal', locationId: loc.id, pos: new THREE.Vector3(cx, floor + 0.5, cz), radius: 3.4, label: '봉인 살펴보기' });
+        this.tablet(loc, cx - 8, cz + 9, 2.4);
+        // smoke rising from the crater
+        for (let i = 0; i < 8; i++) {
+          const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x6a625c, transparent: true, opacity: 0.35, depthWrite: false }));
+          sp.position.set(cx + (rng() - 0.5) * 6, floor + 6 + i * 4, cz + (rng() - 0.5) * 6);
+          sp.scale.setScalar(8 + i * 2);
+          sp.userData.phase = i / 8;
+          this.smoke.push(sp);
+          this.group.add(sp);
+        }
+        // three obsidian braziers on the slopes
+        for (const b of BRAZIERS) {
+          const by = this.y(b.x, b.z);
+          this.cylinder(0.75, 1.0, b.x, by - 0.2, b.z, obs, true, 6);
+          const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.6, 0.45, 8), obs);
+          bowl.position.set(b.x, by + 1.0, b.z);
+          bowl.castShadow = true;
+          this.group.add(bowl);
+          const flame = createFlame(1.6);
+          flame.group.position.set(b.x, by + 1.2, b.z);
+          flame.group.visible = false;
+          this.group.add(flame.group);
+          this.flames.push(flame);
+          const light: LightSource = { pos: new THREE.Vector3(b.x, by + 2.2, b.z), color: 0xff6a2a, intensity: 0, distance: 16 };
+          this.lights.push(light);
+          this.brazierFx.push({ flame, light, lit: false });
+          this.interactables.push({ id: `brazier_${b.id}`, kind: 'brazier', locationId: loc.id, pos: new THREE.Vector3(b.x, by + 1, b.z), radius: 2.6, label: '흑요석 화로에 불 붙이기 (숯 2)' });
+        }
+        break;
+      }
       case 'wreck': {
         const rot = 0.6;
         const g = new THREE.Group();
@@ -367,9 +505,35 @@ export class Landmarks {
     }
   }
 
+  /** Light / extinguish a brazier (state lives in the save's counters). */
+  setBrazierLit(i: number, lit: boolean) {
+    const b = this.brazierFx[i];
+    if (!b) return;
+    b.lit = lit;
+    b.flame.group.visible = lit;
+    b.light.intensity = lit ? 22 : 0;
+    const it = this.interactables.find((x) => x.id === `brazier_${i}`);
+    if (it) it.label = lit ? '타오르는 흑요석 화로' : '흑요석 화로에 불 붙이기 (숯 2)';
+    const all = this.brazierFx.every((x) => x.lit);
+    if (this.sealMat) this.sealMat.emissiveIntensity = all ? 1.8 : 0.15 + 0.3 * this.brazierFx.filter((x) => x.lit).length;
+    const seal = this.interactables.find((x) => x.id === 'crater_seal');
+    if (seal) seal.label = all ? '봉인 깨뜨리기 (용암 거신)' : '봉인 살펴보기';
+  }
+
+  braziersLit(): number {
+    return this.brazierFx.filter((x) => x.lit).length;
+  }
+
   update(dt: number) {
     this.time += dt;
     for (const f of this.flames) f.update(this.time);
+    for (const m of this.lavaMats) m.emissiveIntensity = 1.4 + Math.sin(this.time * 1.7) * 0.35;
+    for (const sp of this.smoke) {
+      const k = (this.time * 0.04 + (sp.userData.phase as number)) % 1;
+      sp.position.y = VOLCANO.floor + 4 + k * 40;
+      sp.scale.setScalar(6 + k * 22);
+      (sp.material as THREE.SpriteMaterial).opacity = 0.4 * (1 - k);
+    }
     for (const p of this.pulses) p.mat.emissiveIntensity = p.base * (0.75 + 0.25 * Math.sin(this.time * p.speed));
     const crystal = this.group.getObjectByName('shrineCrystal');
     if (crystal) {

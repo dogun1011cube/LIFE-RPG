@@ -54,6 +54,9 @@ const SUN_HIGH = new THREE.Color(0xfff2dc);
 const MOON = new THREE.Color(0x8ea8ff);
 const NIGHT_AMBIENT = new THREE.Color(0x4a5a8c);
 const WHITE = new THREE.Color(0xffffff);
+const STORM_TOP = new THREE.Color(0x4a5058);
+const STORM_HOR = new THREE.Color(0x868c94);
+const FLASH = new THREE.Color(0xdde6ff);
 
 /** Day/night cycle, sky dome, sun/moon light, hemisphere light and fog. */
 export class Environment {
@@ -75,6 +78,10 @@ export class Environment {
   private viewFar = 360;
   /** Underground: no sky, no sun, dark fog, dim ambient. */
   interior = false;
+  /** Weather inputs (0..1): cloud cover, extra fog, lightning flash. */
+  overcast = 0;
+  weatherFog = 0;
+  flash = 0;
   private black = new THREE.Color(0x040406);
 
   constructor(private scene: THREE.Scene) {
@@ -178,6 +185,17 @@ export class Environment {
     hor.r = DAY_HOR.r * dayW + DUSK_HOR.r * duskW + NIGHT_HOR.r * nightW;
     hor.g = DAY_HOR.g * dayW + DUSK_HOR.g * duskW + NIGHT_HOR.g * nightW;
     hor.b = DAY_HOR.b * dayW + DUSK_HOR.b * duskW + NIGHT_HOR.b * nightW;
+    // clouds: grey the sky (darker at night)
+    const oc = this.overcast;
+    if (oc > 0.001) {
+      const lum = 0.12 + 0.88 * this.daylight;
+      top.lerp(STORM_TOP.clone().multiplyScalar(lum), oc * 0.85);
+      hor.lerp(STORM_HOR.clone().multiplyScalar(lum), oc * 0.8);
+    }
+    if (this.flash > 0) {
+      top.lerp(FLASH, this.flash * 0.6);
+      hor.lerp(FLASH, this.flash * 0.5);
+    }
     this.sunColor.copy(SUN_LOW).lerp(SUN_HIGH, smoothstep(0.0, 0.45, e));
 
     const u = this.skyMat.uniforms;
@@ -187,7 +205,8 @@ export class Environment {
     (u.uSunDir.value as THREE.Vector3).copy(this.sunDir);
     (u.uMoonDir.value as THREE.Vector3).copy(this.moonDir);
     (u.uSunColor.value as THREE.Color).copy(this.sunColor).multiplyScalar(smoothstep(-0.1, 0.05, e));
-    u.uStars.value = nightW;
+    u.uStars.value = nightW * (1 - oc);
+    (u.uSunColor.value as THREE.Color).multiplyScalar(1 - oc * 0.9);
     u.uTime.value = this.elapsed;
 
     // Main directional light: sun by day, moon by night
@@ -209,7 +228,8 @@ export class Environment {
     // daytime sky light vs. a readable moonlit blue at night
     this.hemi.color.copy(top).lerp(WHITE, 0.35).lerp(NIGHT_AMBIENT, nightW);
     this.hemi.groundColor.setRGB(0.28, 0.3, 0.2).multiplyScalar(0.55 + 0.45 * dayW);
-    this.hemi.intensity = 0.62 + 0.4 * dayW + 0.1 * duskW;
+    this.hemi.intensity = (0.62 + 0.4 * dayW + 0.1 * duskW) * (1 - 0.18 * oc) + this.flash * 1.6;
+    this.sun.intensity *= 1 - 0.7 * oc;
 
     this.fog.color.copy(hor);
     this.scene.background = hor;
@@ -224,8 +244,9 @@ export class Environment {
       this.fog.far = 48;
       this.scene.background = this.black;
     } else {
-      this.fog.near = this.viewNear;
-      this.fog.far = this.viewFar;
+      const wf = this.weatherFog;
+      this.fog.far = this.viewFar * (1 - 0.68 * wf);
+      this.fog.near = Math.min(this.viewNear, this.fog.far * 0.2) * (1 - 0.7 * wf);
     }
   }
 }

@@ -29,7 +29,8 @@ export type SfxName =
   | 'treefall'
   | 'boss'
   | 'bell'
-  | 'heal';
+  | 'heal'
+  | 'thunder';
 
 export class AudioSys {
   private ctx: AudioContext | null = null;
@@ -80,6 +81,30 @@ export class AudioSys {
     src.connect(filter).connect(gain).connect(this.master!);
     src.start();
     this.ambient = { src, gain, filter };
+  }
+
+  private rainSrc: { gain: GainNode } | null = null;
+
+  /** Rain bed: a second filtered noise loop, 0..1. */
+  setRain(level: number) {
+    if (!this.ctx || !this.master || !this.noiseBuf) return;
+    if (!this.rainSrc) {
+      if (level <= 0.01) return;
+      const ctx = this.ctx;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.loop = true;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 2400;
+      f.Q.value = 0.4;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(f).connect(gain).connect(this.master);
+      src.start();
+      this.rainSrc = { gain };
+    }
+    this.rainSrc.gain.gain.setTargetAtTime(level * 0.09, this.ctx.currentTime, 0.8);
   }
 
   setAmbient(windiness: number) {
@@ -237,6 +262,11 @@ export class AudioSys {
           ] as [number, number][])
             this.tone(f, 1.1, 'sine', vol * v, k * 0.42);
         }
+        break;
+      case 'thunder':
+        this.noise(2.2, 0.5 * v, 'lowpass', 420, 60, 0, 0.7);
+        this.tone(48, 1.6, 'sawtooth', 0.12 * v, 0.05, 30);
+        this.noise(0.25, 0.35 * v, 'bandpass', 1800, 300, 0, 1);
         break;
       case 'heal':
         [523, 784, 1046].forEach((f, i) => this.tone(f, 0.4, 'sine', 0.1 * v, i * 0.07));

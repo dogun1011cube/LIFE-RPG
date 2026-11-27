@@ -41,12 +41,16 @@ import type { Projectile } from './entities/Projectiles';
 import { SettlementSystem, freshSettlement, migrateSettlement } from './systems/Settlement';
 import { VillagerManager } from './entities/Villagers';
 import { CivSystem } from './systems/Civilization';
+import { BRAZIERS, BRAZIER_COST, LAVA_POOLS } from './data/ember';
+import { WeatherSystem } from './world/Weather';
+import { BoatSystem } from './entities/Boat';
+import { TradeShipSystem, freshFaction } from './systems/TradeShip';
 import { DefenseSystem } from './systems/Defense';
 import { NavGrid } from './systems/NavGrid';
 import { setWindowGlow } from './systems/BuildMeshes';
 
 export type Screen = 'loading' | 'menu' | 'playing';
-export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint' | 'villager';
+export type PanelId = 'menu' | 'pause' | 'settings' | 'controls' | 'chest' | 'lore' | 'death' | 'saveload' | 'blueprint' | 'villager' | 'ship';
 export type MenuTab = 'inventory' | 'skills' | 'crafting' | 'quests' | 'map' | 'village' | 'civ';
 
 export interface Interaction {
@@ -118,6 +122,9 @@ function freshState(seed: number): GameState {
     bossDefeated: 0,
     playTime: 0,
     settlement: freshSettlement(),
+    boat: null,
+    boatSail: 0,
+    faction: freshFaction(),
   };
 }
 
@@ -175,6 +182,11 @@ export class Game {
   civ!: CivSystem;
   defense!: DefenseSystem;
   nav!: NavGrid;
+  weather!: WeatherSystem;
+  boats!: BoatSystem;
+  ship!: TradeShipSystem;
+  private seaWarned = 0;
+  private lavaWarned = 0;
   /** Shelter state, updated once per second: under a roof, near a fire, comfort from furniture. */
   shelter = { indoors: false, heat: false, comfort: 0 };
   private shelterTimer = 0;
@@ -234,7 +246,7 @@ export class Game {
   }
 
   private async initWorld(seed: number) {
-    const zones = LOCATIONS.map((l) => ({ x: l.x, z: l.z, r: l.flatRadius, h: l.flatHeight }));
+    const zones = [...LOCATIONS.map((l) => ({ x: l.x, z: l.z, r: l.flatRadius, h: l.flatHeight })), ...BRAZIERS.map((b) => ({ x: b.x, z: b.z, r: 4 }))];
     await this.step('지형을 생성하는 중...', 0.1);
     this.terrain = new Terrain(seed, zones);
     this.scene.add(this.terrain.mesh);
@@ -282,6 +294,9 @@ export class Game {
     this.defense = new DefenseSystem(this);
     this.nav = new NavGrid(this);
     this.villagers = new VillagerManager(this);
+    this.weather = new WeatherSystem(this);
+    this.boats = new BoatSystem(this);
+    this.ship = new TradeShipSystem(this);
     this.scene.add(this.villagers.group);
     await this.step('지도를 그리는 중...', 0.9);
     this.mapImage = renderMapImage(this.terrain, 1024);
@@ -400,6 +415,8 @@ export class Game {
       },
       quests: { ...fresh.quests, ...file.state.quests },
       settlement: migrateSettlement(file.state.settlement),
+      faction: { ...freshFaction(), ...(file.state.faction ?? {}) },
+      boat: file.state.boat ?? null,
     };
     if (this.state.player.inventory.length < INVENTORY_SIZE) {
       while (this.state.player.inventory.length < INVENTORY_SIZE) this.state.player.inventory.push(null);
@@ -435,10 +452,14 @@ export class Game {
     this.building.setActive(false);
     this.building.load(st.pieces);
     this.defense.clear();
+    this.weather.load(st.world.weather);
+    this.boats.load();
+    this.ship.reset();
     this.villagers.sync();
     this.discovery.reset();
     this.discovery.loadExplored(st.explored);
     for (const id of st.openedChests) this.landmarks.markChestOpened(id);
+    for (const b of BRAZIERS) this.landmarks.setBrazierLit(b.id, (st.counters[`brazier:${b.id}`] ?? 0) > 0 && !(st.counters['boss:titan'] > 0));
     const p = st.player;
     if (!Number.isFinite(p.y) || p.y < this.terrain.heightAt(p.x, p.z) - 2) p.y = this.terrain.heightAt(p.x, p.z);
     this.player.reset();
@@ -462,6 +483,7 @@ export class Game {
     const st = this.state;
     st.world.time = this.env.time;
     st.world.day = this.env.day;
+    st.world.weather = this.weather.serialize();
     st.pieces = this.building.serialize();
     st.depletedNodes = this.resources.getDepleted();
     st.explored = this.discovery.serializeExplored();
@@ -608,6 +630,7 @@ export class Game {
         clickConsumed = !this.input.lockUnavailable;
       }
       if (canControl) this.handleGameplayInput(clickConsumed);
+      this.boats.update(simDt, canControl && this.ui.panel === null);
       this.player.update(simDt, canControl);
       this.updateInteraction();
       this.enemies.update(simDt);
@@ -615,7 +638,7 @@ export class Game {
         simDt,
         pp,
         this.player.body.radius,
-        (p) => this.damagePlayer(p.damage, p.pos, { knock: 3, slow: p.slow }),
+        (p) => this.damagePlayer(p.damage, p.pos, { knock: 3, slow: p.slow, fire: p.fire }),
         (pos, color) => this.particles.burst(pos, color, 8, 2.5, 0.08, 2),
         (p) => this.playerProjectileHit(p),
       );
@@ -649,6 +672,9 @@ export class Game {
       this.updateShelter(simDt);
       this.settlement.update(simDt);
       this.defense.update(simDt);
+      this.weather.update(simDt);
+      this.ship.update(simDt);
+      this.updateHazards(simDt);
       this.villagers.update(simDt);
       setWindowGlow(this.env.isNight ? 1 : 0);
       this.resources.update(simDt, this.state.playTime, pp, this.quality.viewDistance);
@@ -716,6 +742,7 @@ export class Game {
     else if (i.wasPressed('KeyH')) this.openMenu('village');
     else if (i.wasPressed('KeyL')) this.openMenu('civ');
     else if (i.wasPressed('KeyB') && this.inDungeon) this.events.emit('notify', { text: '묘소 안에서는 건축할 수 없습니다', kind: 'warn' });
+    else if (i.wasPressed('KeyB') && this.boats?.onBoard) this.events.emit('notify', { text: '배 위에서는 건축할 수 없습니다', kind: 'warn' });
     else if (i.wasPressed('KeyB') && (this.ui.panel === null || this.ui.panel === 'menu')) {
       if (this.ui.panel) this.closePanel(true);
       this.building.setActive(!this.building.active);
@@ -726,6 +753,13 @@ export class Game {
   private handleGameplayInput(clickConsumed: boolean) {
     const i = this.input;
     const b = this.building;
+    if (this.boats.onBoard) {
+      // sailing: steering is read by the boat; only interaction, hotbar and zoom here
+      if (i.wasPressed('KeyE') && this.ui.prompt) this.ui.prompt.run();
+      for (let k = 1; k <= 4; k++) if (i.wasPressed(`Digit${k}`)) this.useHotbar(k - 1);
+      if (i.wheel !== 0) this.cameraRig.zoom(i.wheel);
+      return;
+    }
     if (b.active) {
       if (!clickConsumed && i.wasMousePressed(0)) b.tryPlace();
       if (i.wasMousePressed(2) || i.wasPressed('KeyX') || i.wasPressed('Delete')) b.tryRemove();
@@ -801,6 +835,12 @@ export class Game {
       }
       return best ? (best as { score: number; it: Interaction }).it : null;
     }
+    // Boat & merchant ship
+    if (this.boats.onBoard) {
+      return { label: this.boats.landingSpot() ? '배에서 내리기' : '육지 근처에서 내릴 수 있다', key: 'E', kind: 'piece', run: () => this.boats.disembark() };
+    }
+    if (this.ship.canTrade(p)) consider(0.2, { label: `교역: ${'해풍 상단'}의 배`, key: 'E', kind: 'piece', run: () => this.openPanel('ship') });
+    if (this.boats.near(p)) consider(0.3, { label: '배에 타기', key: 'E', kind: 'piece', run: () => this.boats.board() });
     // Villagers
     const vil = this.villagers.nearest(p, 2.4);
     if (vil) {
@@ -896,6 +936,37 @@ export class Game {
         this.audio.play('deny');
         this.events.emit('notify', { text: '제단이 고대 인장을 원한다. (작업대에서 제작)', kind: 'warn' });
       }
+    } else if (lm.kind === 'brazier') {
+      const i = Number(lm.id.split('_')[1]);
+      if ((st.counters[`brazier:${i}`] ?? 0) > 0) return;
+      if (!Inv.remove(st.player.inventory, 'charcoal', BRAZIER_COST)) {
+        this.audio.play('deny');
+        this.events.emit('notify', { text: `숯 ${BRAZIER_COST}개가 필요합니다 (그을린 나무를 베면 얻는다)`, kind: 'warn' });
+        return;
+      }
+      st.counters[`brazier:${i}`] = 1;
+      this.landmarks.setBrazierLit(i, true);
+      this.audio.play('discover');
+      this.particles.burst(lm.pos.clone().setY(lm.pos.y + 1), 0xff6a2a, 24, 4, 0.12);
+      const lit = this.landmarks.braziersLit();
+      this.events.emit('notify', { text: lit >= 3 ? '세 화로가 모두 타오른다. 분화구의 봉인이 깨어났다!' : `흑요석 화로 ${lit}/3`, kind: lit >= 3 ? 'quest' : 'info' });
+      if (lit >= 3) this.cameraRig.shake(0.5);
+      this.quests.check();
+      this.requestAutosave();
+    } else if (lm.kind === 'seal') {
+      if (this.enemies.boss) {
+        this.events.emit('notify', { text: '용암 거신이 이미 깨어나 있다!', kind: 'warn' });
+        return;
+      }
+      if (this.landmarks.braziersLit() < 3) {
+        this.ui.lore = loc.lore;
+        this.openPanel('lore');
+        this.events.emit('notify', { text: `봉인이 잠잠하다. 산비탈의 흑요석 화로 ${this.landmarks.braziersLit()}/3`, kind: 'info' });
+        return;
+      }
+      this.particles.rise(lm.pos, 0xff6a2a, 50, 2);
+      this.enemies.summonTitan();
+      this.bridge.bump();
     } else if (lm.kind === 'dungeon') {
       this.enterDungeon();
     } else if (lm.kind === 'station') {
@@ -963,6 +1034,22 @@ export class Game {
     const st = this.state;
     const def = ITEMS[id];
     if (!def?.use) return;
+    if (def.use.launchBoat) {
+      this.boats.launch();
+      return;
+    }
+    if (def.use.upgradeSail) {
+      if (st.boatSail) {
+        this.events.emit('notify', { text: '이미 고급 돛을 달았습니다', kind: 'warn' });
+        return;
+      }
+      if (!Inv.remove(st.player.inventory, id, 1)) return;
+      st.boatSail = 1;
+      this.events.emit('notify', { text: '배에 고급 돛을 달았다! 배 속도 +35%', kind: 'unlock' });
+      this.audio.play('craft');
+      this.bridge.bump();
+      return;
+    }
     if (!Inv.remove(st.player.inventory, id, 1)) return;
     const p = st.player;
     const stats = derivePlayerStats(p);
@@ -1329,6 +1416,16 @@ export class Game {
       this.events.emit('banner', { title: '수호자를 쓰러뜨렸다!', subtitle: '섬이 당신을 주인으로 인정했다', kind: 'boss' });
       this.particles.rise(pos, 0x5fe0f0, 80, 3);
       this.requestAutosave();
+    } else if (def.id === 'lava_titan') {
+      st.counters['boss:titan'] = (st.counters['boss:titan'] ?? 0) + 1;
+      this.events.emit('banner', { title: '용암 거신을 쓰러뜨렸다!', subtitle: '불의 산이 잠잠해졌다 · 용암 핵을 얻었다', kind: 'boss' });
+      this.particles.rise(pos, 0xff6a2a, 90, 3);
+      // the braziers burn out; they can be lit again to face the titan once more
+      for (const b of BRAZIERS) {
+        st.counters[`brazier:${b.id}`] = 0;
+        this.landmarks.setBrazierLit(b.id, false);
+      }
+      this.requestAutosave();
     } else if (def.id === 'crypt_keeper') {
       this.dungeon.keeperDefeated = true;
       this.events.emit('banner', { title: '묘지기를 쓰러뜨렸다!', subtitle: '왕의 보물함의 봉인이 풀렸다', kind: 'boss' });
@@ -1339,9 +1436,14 @@ export class Game {
     this.quests.check();
   }
 
-  damagePlayer(amount: number, from: THREE.Vector3, opts: { knock?: number; slow?: boolean; source?: Enemy; unblockable?: boolean } = {}): boolean {
+  damagePlayer(amount: number, from: THREE.Vector3, opts: { knock?: number; slow?: boolean; source?: Enemy; unblockable?: boolean; fire?: boolean } = {}): boolean {
     const pl = this.player;
     if (pl.dead) return false;
+    // fire resistance (불씨 열매) halves fire damage; rain dampens fire creatures
+    if (opts.fire || opts.source?.def.fire) {
+      if (this.state.player.buffs.some((b) => b.id === 'fire_ward')) amount *= 0.5;
+      if (this.weather?.raining) amount *= 0.8;
+    }
     const head = pl.body.pos.clone().setY(pl.body.pos.y + 2);
     if (pl.iframes > 0) {
       this.floatText.spawn(head, '회피!', 'dodge');
@@ -1517,6 +1619,48 @@ export class Game {
   talkTo(id: number) {
     this.ui.villagerId = id;
     this.openPanel('villager');
+  }
+
+  // ── Hazards: lava, the open sea, rain ───────────────────
+  private updateHazards(dt: number) {
+    if (this.inDungeon || this.player.dead || dt <= 0) return;
+    const p = this.state.player;
+    const pp = this.player.body.pos;
+    const buff = (id: string) => p.buffs.some((b) => b.id === id);
+    // lava pools in the crater
+    for (const l of LAVA_POOLS) {
+      if (Math.hypot(pp.x - l.x, pp.z - l.z) < l.r && pp.y < this.terrain.heightAt(l.x, l.z) + 0.6) {
+        const dmg = 22 * dt * (buff('fire_ward') ? 0.5 : 1);
+        p.hp -= dmg;
+        this.player.lastHurtAt = this.state.playTime;
+        if (this.state.playTime - this.lavaWarned > 3) {
+          this.lavaWarned = this.state.playTime;
+          this.events.emit('notify', { text: '용암에 데이고 있다! (불씨 열매: 화염 저항)', kind: 'warn' });
+          this.audio.play('hurt', 0.6);
+        }
+        if (p.hp <= 0) this.damagePlayer(9999, pp.clone(), { unblockable: true });
+        break;
+      }
+    }
+    // swimming far out at sea: the waves wear you down - you need a boat
+    if (this.player.swimming && !this.boats.onBoard && this.terrain.heightAt(pp.x, pp.z) < -9) {
+      p.stamina = Math.max(0, p.stamina - 9 * dt);
+      if (p.stamina <= 0) {
+        p.hp -= 6 * dt;
+        this.player.lastHurtAt = this.state.playTime;
+        if (p.hp <= 0) this.damagePlayer(9999, pp.clone(), { unblockable: true });
+      }
+      if (this.state.playTime - this.seaWarned > 12) {
+        this.seaWarned = this.state.playTime;
+        this.events.emit('notify', { text: '거친 파도가 몸을 지치게 한다. 먼 바다는 배로 건너야 한다', kind: 'warn' });
+      }
+    }
+    // rain soaks you unless you are under a roof (or in the boat cabin-less... the boat does not help)
+    if (this.weather.raining && !this.shelter.indoors) {
+      const w = p.buffs.find((b) => b.id === 'wet');
+      if (w) w.time = 30;
+      else p.buffs.push({ id: 'wet', time: 30 });
+    }
   }
 
   // ── Shelter & rest ──────────────────────────────────────

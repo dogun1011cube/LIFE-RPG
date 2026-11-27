@@ -20,7 +20,7 @@ export interface ItemDef {
   tool?: { kind: 'axe' | 'pickaxe'; tier: number; power: number; speed: number; color: number };
   armor?: { defense: number; color: number };
   trinket?: { hp?: number; mana?: number; manaRegen?: number; crit?: number; defense?: number; attackPct?: number };
-  use?: { heal?: number; mana?: number; hot?: { amount: number; duration: number }; stamina?: number; buff?: string; resetSkills?: boolean; launchBoat?: boolean };
+  use?: { heal?: number; mana?: number; hot?: { amount: number; duration: number }; stamina?: number; buff?: string; resetSkills?: boolean; launchBoat?: boolean; upgradeSail?: boolean };
 }
 
 export const RARITY_COLOR: Record<Rarity, string> = {
@@ -70,6 +70,9 @@ const list: ItemDef[] = [
   { id: 'ember_fruit', name: '불씨 열매', desc: '속이 따뜻하게 빛나는 열매. 먹으면 잠시 화염 저항을 얻는다(용암·불 피해 절반).', category: 'consumable', rarity: 'uncommon', stack: 30, icon: { shape: 'berry', c1: '#ff7a2a', c2: '#ffd27a' }, value: 5, use: { heal: 12, buff: 'fire_ward' } },
   { id: 'ember_core', name: '용암 핵', desc: '용암 거신의 심장. 아직도 뜨겁게 맥동한다.', category: 'special', rarity: 'legendary', stack: 5, icon: { shape: 'core', c1: '#ff6a2a', c2: '#5a1a0a' }, value: 300 },
   { id: 'boat', name: '작은 배', desc: '돛 하나 달린 나무배. 바닷가 얕은 물 근처에서 사용하면 배를 띄운다. 먼 바다를 건너려면 반드시 필요하다.', category: 'special', rarity: 'rare', stack: 1, icon: { shape: 'boat', c1: '#a8743f', c2: '#e8dcc0' }, value: 60, use: { launchBoat: true } },
+  { id: 'spice', name: '향신료', desc: '바다 건너 온 귀한 향신료. 마을 창고에 두면 주민들이 매일 조금씩 쓰며 행복해한다(행복도 +6).', category: 'material', rarity: 'uncommon', stack: 50, icon: { shape: 'berry', c1: '#c8502a', c2: '#e8b84a' }, value: 10 },
+  { id: 'sail_upgrade', name: '고급 돛', desc: '해풍 상단의 질긴 돛. 사용하면 배의 속도가 35% 빨라진다.', category: 'special', rarity: 'epic', stack: 1, icon: { shape: 'boat', c1: '#6a4426', c2: '#2c6a9a' }, value: 100, use: { upgradeSail: true } },
+  { id: 'seawind_charm', name: '해풍의 부적', desc: '해풍 상단의 동맹에게만 주어지는 부적. 바닷바람처럼 날렵해진다.', category: 'accessory', rarity: 'epic', stack: 1, icon: { shape: 'charm', c1: '#2c6a9a', c2: '#e8dcc0' }, value: 220, trinket: { hp: 25, crit: 0.06, defense: 4 } },
   { id: 'plank', name: '판자', desc: '곧게 켠 나무 판자. 주택과 대장간 물건의 재료.', category: 'material', rarity: 'common', stack: 99, icon: { shape: 'plank', c1: '#d0a060', c2: '#8a6030' }, value: 3 },
   { id: 'tool_kit', name: '도구 꾸러미', desc: '구리 날을 단 연장 묶음. 마을 창고에 있으면 농부·나무꾼·광부가 써서 더 많이 생산한다.', category: 'material', rarity: 'uncommon', stack: 50, icon: { shape: 'toolkit', c1: '#c87533', c2: '#7a5230' }, value: 14 },
   { id: 'stone_brick', name: '석재 벽돌', desc: '반듯하게 다듬은 돌 벽돌. 대리석 건축물과 성벽의 재료.', category: 'material', rarity: 'uncommon', stack: 99, icon: { shape: 'brick', c1: '#d8d0c0', c2: '#9a9284' }, value: 4 },

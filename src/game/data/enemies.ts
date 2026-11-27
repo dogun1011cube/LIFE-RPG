@@ -1,4 +1,4 @@
-export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden' | 'skeleton' | 'archer' | 'keeper';
+export type EnemyModel = 'slime' | 'wolf' | 'golem' | 'wisp' | 'warden' | 'skeleton' | 'archer' | 'keeper' | 'magma_slime' | 'ash_wolf' | 'lava_golem' | 'fire_wisp' | 'titan';
 
 export interface AttackDef {
   kind: 'melee' | 'lunge' | 'slam' | 'ranged' | 'burst' | 'summon';
@@ -58,6 +58,8 @@ export interface EnemyDef {
   dungeon?: boolean;
   /** Shown under the boss bar / banner */
   bossTitle?: string;
+  /** fire creature: its hits are halved by fire resistance, rain weakens it */
+  fire?: boolean;
 }
 
 const list: EnemyDef[] = [
@@ -120,6 +122,54 @@ const list: EnemyDef[] = [
       { kind: 'lunge', range: 5, minRange: 2.8, windup: 0.75, active: 0.35, recover: 0.8, mult: 1.2, lungeSpeed: 11, weight: 0.5 },
     ],
     drops: [{ item: 'bone', chance: 0.85, min: 1, max: 3 }, { item: 'copper_ingot', chance: 0.15, min: 1, max: 1 }],
+  },
+  // ── 잿불 섬 ─────────────────────────────────────────────
+  {
+    id: 'magma_slime', name: '마그마 슬라임', level: 7, model: 'magma_slime', hp: 70, damage: 13, defense: 3, speed: 1.4, chaseSpeed: 3.2,
+    radius: 0.6, height: 0.9, scale: 1, aggroRange: 11, leash: 30, cooldown: 1.1, poise: 0, xp: 32, fire: true,
+    attacks: [{ kind: 'lunge', range: 3, windup: 0.55, active: 0.35, recover: 0.7, mult: 1, lungeSpeed: 8 }],
+    drops: [{ item: 'charcoal', chance: 0.7, min: 1, max: 2 }, { item: 'ember_fruit', chance: 0.25, min: 1, max: 1 }],
+  },
+  {
+    id: 'ash_wolf', name: '잿빛 늑대', level: 9, model: 'ash_wolf', hp: 120, damage: 18, defense: 5, speed: 2.3, chaseSpeed: 6.8,
+    radius: 0.6, height: 1.0, scale: 1.1, aggroRange: 16, leash: 40, cooldown: 0.95, poise: 0, xp: 58,
+    attacks: [
+      { kind: 'melee', range: 2.1, windup: 0.38, active: 0.15, recover: 0.45, mult: 1, arc: 80, weight: 1 },
+      { kind: 'lunge', range: 7.5, minRange: 3.5, windup: 0.65, active: 0.4, recover: 0.8, mult: 1.3, lungeSpeed: 15, weight: 0.6 },
+    ],
+    drops: [{ item: 'wolf_pelt', chance: 0.9, min: 1, max: 2 }, { item: 'raw_meat', chance: 0.8, min: 1, max: 2 }],
+  },
+  {
+    id: 'lava_golem', name: '용암 골렘', level: 11, model: 'lava_golem', hp: 320, damage: 30, defense: 12, speed: 1.1, chaseSpeed: 2.6,
+    radius: 1.1, height: 2.4, scale: 1.05, aggroRange: 12, leash: 35, cooldown: 1.5, poise: 30, xp: 130, fire: true,
+    attacks: [
+      { kind: 'slam', range: 3.0, windup: 1.0, active: 0.2, recover: 1.1, mult: 1.1, aoe: 3.6, weight: 1 },
+      { kind: 'melee', range: 2.7, windup: 0.7, active: 0.2, recover: 0.8, mult: 0.85, arc: 100, weight: 1 },
+    ],
+    drops: [{ item: 'iron_ore', chance: 1, min: 2, max: 4 }, { item: 'obsidian', chance: 0.3, min: 1, max: 1 }, { item: 'charcoal', chance: 0.6, min: 1, max: 3 }],
+  },
+  {
+    id: 'fire_wisp', name: '불꽃 정령', level: 9, model: 'fire_wisp', hp: 75, damage: 17, defense: 0, speed: 2.0, chaseSpeed: 3.8,
+    radius: 0.5, height: 1.0, scale: 1, aggroRange: 22, leash: 50, cooldown: 1.3, poise: 0, xp: 52, nightOnly: true, flying: true, keepDistance: 8, fire: true,
+    attacks: [{ kind: 'ranged', range: 16, windup: 0.8, active: 0.1, recover: 0.9, mult: 1, projSpeed: 12, color: 0xff7a2a }],
+    drops: [{ item: 'ember_fruit', chance: 0.5, min: 1, max: 2 }, { item: 'gloom_essence', chance: 0.3, min: 1, max: 1 }],
+  },
+  {
+    id: 'lava_titan', name: '용암 거신', level: 13, model: 'titan', bossTitle: '불의 산 깊은 곳에서 깨어난 자', hp: 1600, damage: 32, defense: 12, speed: 1.5, chaseSpeed: 3.2,
+    radius: 1.9, height: 4.6, scale: 1, aggroRange: 30, leash: 30, cooldown: 1.15, poise: 70, xp: 1000, boss: true, fire: true,
+    attacks: [
+      { kind: 'slam', range: 4.8, windup: 1.05, active: 0.2, recover: 1.0, mult: 1.2, aoe: 5.0, weight: 1.2 },
+      { kind: 'melee', range: 4.6, windup: 0.8, active: 0.2, recover: 0.8, mult: 1.0, arc: 150, weight: 1.2 },
+      { kind: 'ranged', range: 26, minRange: 6, windup: 0.9, active: 0.1, recover: 1.0, mult: 0.8, projSpeed: 13, homing: 0.6, color: 0xff5a1a, weight: 0.9 },
+      { kind: 'summon', range: 30, windup: 1.2, active: 0.1, recover: 1.0, mult: 0, summon: 'magma_slime', count: 2, weight: 0.5, phase: 2 },
+      { kind: 'burst', range: 30, minRange: 4, windup: 1.0, active: 0.1, recover: 1.2, mult: 0.75, projCount: 12, projSpeed: 10, weight: 1, phase: 2, color: 0xff6a1a },
+    ],
+    drops: [
+      { item: 'ember_core', chance: 1, min: 1, max: 1 },
+      { item: 'obsidian', chance: 1, min: 4, max: 6 },
+      { item: 'iron_ingot', chance: 1, min: 6, max: 8 },
+      { item: 'health_potion', chance: 1, min: 2, max: 3 },
+    ],
   },
   {
     id: 'raider_skeleton', name: '떠도는 해골', level: 5, model: 'skeleton', hp: 78, damage: 12, defense: 4, speed: 1.6, chaseSpeed: 4.0,

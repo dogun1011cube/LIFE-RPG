@@ -3,7 +3,7 @@ import { ENEMIES, type AttackDef, type EnemyDef } from '../data/enemies';
 import { BOSS_ARENA } from '../data/locations';
 import { WORLD } from '../config';
 import { angleDiff, dampAngle } from '../core/math';
-import { BIOME } from '../world/Terrain';
+import { BIOME, VOLCANO } from '../world/Terrain';
 import { ringTexture } from '../world/textures';
 import { buildEnemyRig, type EnemyRig } from './EnemyModels';
 import { moveBody, groundAt, type Body } from './physics';
@@ -78,8 +78,15 @@ const SPAWN_TABLE: Record<number, { day: [string, number][]; night: [string, num
   [BIOME.beach]: { day: [['slime', 0.5]], night: [['slime', 0.5], ['wisp', 0.5]] },
 };
 
-const GROUP: Record<string, [number, number]> = { slime: [1, 3], wolf: [2, 3], golem: [1, 1], wisp: [1, 2] };
-const TYPE_CAP: Record<string, number> = { golem: 3, wolf: 6, wisp: 4, slime: 8 };
+/** 잿불 섬 */
+const SPAWN_TABLE_EMBER: Record<number, { day: [string, number][]; night: [string, number][] }> = {
+  [BIOME.ash]: { day: [['ash_wolf', 1], ['magma_slime', 0.8]], night: [['ash_wolf', 1], ['fire_wisp', 1]] },
+  [BIOME.volcano]: { day: [['lava_golem', 1], ['magma_slime', 0.7]], night: [['lava_golem', 1], ['fire_wisp', 0.8]] },
+  [BIOME.blacksand]: { day: [['magma_slime', 0.6]], night: [['magma_slime', 0.5], ['fire_wisp', 0.5]] },
+};
+
+const GROUP: Record<string, [number, number]> = { slime: [1, 3], wolf: [2, 3], golem: [1, 1], wisp: [1, 2], magma_slime: [1, 3], ash_wolf: [2, 3], lava_golem: [1, 1], fire_wisp: [1, 2] };
+const TYPE_CAP: Record<string, number> = { golem: 3, wolf: 6, wisp: 4, slime: 8, magma_slime: 7, ash_wolf: 6, lava_golem: 3, fire_wisp: 4 };
 
 /** Spawning, AI, combat resolution for all hostile creatures. */
 export class EnemyManager {
@@ -129,6 +136,22 @@ export class EnemyManager {
     if (this.boss === e) this.boss = null;
   }
 
+  /** 잿불 섬: the lava titan rises from the crater seal. */
+  summonTitan(): Enemy | null {
+    if (this.boss) return null;
+    const e = this.spawn('lava_titan', VOLCANO.x, VOLCANO.z - 4);
+    e.home.set(VOLCANO.x, e.body.pos.y, VOLCANO.z);
+    e.aggro = true;
+    e.setState('chase');
+    e.cooldown = 2.5;
+    this.game.audio.play('boss');
+    this.game.audio.play('slam');
+    this.game.events.emit('banner', { title: e.def.name, subtitle: e.def.bossTitle ?? '', kind: 'boss' });
+    this.game.particles.burst(e.body.pos.clone().setY(e.body.pos.y + 2), 0xff6a2a, 50, 9, 0.22);
+    this.game.cameraRig.shake(1.0);
+    return e;
+  }
+
   summonBoss() {
     if (this.boss) return;
     const e = this.spawn('warden', BOSS_ARENA.x, BOSS_ARENA.z - 5);
@@ -163,7 +186,7 @@ export class EnemyManager {
       if (!isle || Math.abs(x - isle.cx) > isle.half - 20 || Math.abs(z - isle.cz) > isle.half - 20) continue;
       if (game.terrain.heightAt(x, z) < 1.2) continue;
       const biome = game.terrain.biomeAt(x, z);
-      const table = SPAWN_TABLE[biome];
+      const table = game.terrain.islandId(x, z) === 'ember' ? SPAWN_TABLE_EMBER[biome] : SPAWN_TABLE[biome];
       if (!table) continue;
       const opts = night ? table.night : table.day;
       const total = opts.reduce((s, o) => s + o[1], 0);
@@ -195,8 +218,8 @@ export class EnemyManager {
   }
 
   private chooseAttack(e: Enemy, dist: number): AttackDef | null {
-    const minions = this.list.filter((o) => !o.removed && o.state !== 'dead' && o !== e && o.def.id === 'skeleton').length;
-    const opts = e.def.attacks.filter((a) => dist <= a.range && dist >= (a.minRange ?? 0) && (a.phase ?? 1) <= e.phase && (a.kind !== 'summon' || minions < 3));
+    const minions = (id?: string) => this.list.filter((o) => !o.removed && o.state !== 'dead' && o !== e && o.def.id === id).length;
+    const opts = e.def.attacks.filter((a) => dist <= a.range && dist >= (a.minRange ?? 0) && (a.phase ?? 1) <= e.phase && (a.kind !== 'summon' || minions(a.summon) < 3));
     if (opts.length === 0) return null;
     const total = opts.reduce((s, a) => s + (a.weight ?? 1), 0);
     let r = Math.random() * total;
@@ -254,7 +277,7 @@ export class EnemyManager {
     }
     if (e.def.boss && e.phase === 1 && e.hp < e.maxHp * 0.5) {
       e.phase = 2;
-      this.game.events.emit('banner', { title: '수호자가 분노한다!', subtitle: '공격 패턴이 바뀌었다', kind: 'boss' });
+      this.game.events.emit('banner', { title: `${e.def.name}이(가) 분노한다!`, subtitle: '공격 패턴이 바뀌었다', kind: 'boss' });
       this.game.audio.play('boss');
       this.game.cameraRig.shake(0.6);
     }
@@ -593,7 +616,7 @@ export class EnemyManager {
       const target = new THREE.Vector3(pp.x, pp.y + 1.0, pp.z).addScaledVector(game.player.body.vel, 0.25);
       const vel = target.sub(from).normalize().multiplyScalar(atk.projSpeed ?? 10);
       const isArrow = def.model === 'archer';
-      game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0xa07aff, { homing: atk.homing ?? 0.8, slow: !isArrow });
+      game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0xa07aff, { homing: atk.homing ?? 0.8, slow: !isArrow && !def.fire, fire: def.fire });
       game.audio.play(isArrow ? 'swing' : 'shoot');
     } else if (atk.kind === 'burst') {
       const n = atk.projCount ?? 8;
@@ -602,7 +625,7 @@ export class EnemyManager {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + e.time;
         const vel = new THREE.Vector3(Math.sin(a), -0.05, Math.cos(a)).multiplyScalar(atk.projSpeed ?? 10);
-        game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0x5fe0f0, { life: 3.5 });
+        game.projectiles.spawn(from, vel, def.damage * atk.mult, atk.color ?? 0x5fe0f0, { life: 3.5, fire: def.fire });
       }
       game.audio.play('shoot');
       game.audio.play('slam', 0.5);
@@ -618,7 +641,7 @@ export class EnemyManager {
         game.particles.burst(m.body.pos.clone().setY(m.body.pos.y + 0.5), 0xb06aff, 16, 3, 0.1);
       }
       game.audio.play('boss', 0.6);
-      game.events.emit('notify', { text: `${def.name}이(가) 해골을 불러냈다!`, kind: 'warn' });
+      game.events.emit('notify', { text: `${def.name}이(가) 부하를 불러냈다!`, kind: 'warn' });
     }
   }
 }

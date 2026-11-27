@@ -30,7 +30,7 @@ export interface IslandOptions {
 }
 
 /** Crater of the ember isle volcano, in world coordinates (the boss arena). */
-export const VOLCANO = { x: EMBER_ISLE.cx + 15, z: EMBER_ISLE.cz - 25, floor: 47, craterR: 16 };
+export const VOLCANO = { x: EMBER_ISLE.cx + 15, z: EMBER_ISLE.cz - 25, floor: 44, craterR: 16, coneR: 118 };
 
 export interface FlatZone {
   x: number;
@@ -152,7 +152,7 @@ export class IslandTerrain {
     const vx = x - (VOLCANO.x - this.cx);
     const vz = z - (VOLCANO.z - this.cz);
     const vd = Math.hypot(vx, vz) + fbm(n, x * 0.02 + 70, z * 0.02, 2) * 5;
-    const cone = Math.max(0, 1 - vd / 135);
+    const cone = Math.max(0, 1 - vd / VOLCANO.coneR);
     this.lastMask = cone;
     h += Math.pow(cone, 1.6) * 72 + ridged(n, x * 0.02 + 40, z * 0.02, 3) * cone * 5;
     // the crater: a flat floor inside a rim

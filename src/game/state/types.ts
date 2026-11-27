@@ -130,6 +130,7 @@ export interface WorldState {
   seed: number;
   time: number; // 0..1 time of day
   day: number;
+  weather?: { kind: 'clear' | 'cloudy' | 'rain' | 'storm' | 'fog'; timer: number };
 }
 
 export interface GameState {
@@ -152,6 +153,10 @@ export interface GameState {
   bossDefeated: number;
   playTime: number;
   settlement: SettlementState;
+  /** PHASE 6: the player's boat (null = not launched), sail upgrade, merchant company reputation */
+  boat?: { x: number; z: number; yaw: number } | null;
+  boatSail?: number;
+  faction: { rep: number; visits: number; nextVisitDay: number; traded: number };
 }
 
 export interface SaveFile {
