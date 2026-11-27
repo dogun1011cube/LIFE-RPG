@@ -329,6 +329,18 @@ export class SettlementSystem {
       v.homeSlot = free.slot;
       taken.add(key(free.piece.state.id, free.slot));
     }
+    // villagers sleeping in a loose bed move into a house when one has room
+    const houseSlots = slots.filter((s) => (s.piece.def.housing ?? 1) > 1 && !taken.has(key(s.piece.state.id, s.slot)));
+    for (const v of vs) {
+      if (!houseSlots.length) break;
+      const cur = v.homeId !== null ? this.game.building.pieces.get(v.homeId) : undefined;
+      if (!cur || (cur.def.housing ?? 1) > 1) continue;
+      const s = houseSlots.shift()!;
+      v.homeId = s.piece.state.id;
+      v.homeSlot = s.slot;
+      taken.add(key(s.piece.state.id, s.slot));
+      this.log(`${v.name}이(가) ${s.piece.def.name}으로 이사했습니다.`);
+    }
   }
 
   private validateJobs() {

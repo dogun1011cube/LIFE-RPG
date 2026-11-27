@@ -213,7 +213,7 @@ export class VillagerManager {
       case 'work':
         return '일하는 중';
       case 'sleep':
-        return '자는 중';
+        return a.goal === 'shelter' ? '대피함 (침대)' : '자는 중';
       case 'inside':
         return a.goal === 'shelter' ? '집 안에 대피함' : '집 안에서 쉬는 중';
       case 'talk':

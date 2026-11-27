@@ -231,6 +231,63 @@ export const QUESTS: QuestDef[] = [
     objectives: [{ type: 'counter', key: 'village:tier', count: 3, label: '발전된 마을 단계' }],
     rewards: { xp: 600 },
   },
+  // ── PHASE 5: city & civilisation ─────────────────────────
+  {
+    id: 'c_research', title: '지식의 등불', chain: 'main', requires: ['v_village'],
+    summary: '연구소를 짓고 첫 기술을 연구하자.',
+    description: '"도시" 분류의 연구소를 짓고 학자를 배정하면 연구 점수가 쌓인다. 연구소 근처에 책장을 두면 더 빨라진다. [L] 문명 창에서 첫 기술을 연구하자. 공명 수정이나 고대 파편을 기증해도 연구 점수를 얻는다.',
+    objectives: [{ type: 'counter', key: 'tech:count', count: 1, label: '연구한 기술' }],
+    rewards: { xp: 300, items: [{ item: 'coin', qty: 30 }] },
+  },
+  {
+    id: 'c_bronze', title: '청동 시대', chain: 'main', requires: ['c_research'],
+    summary: '개척 시대 기술 3개를 익히고 청동 시대로 나아가자.',
+    description: '개척 시대 기술 세 가지를 연구하면 "청동기 시대" 연구가 열린다. 연구 점수와 금고의 은화가 필요하다.',
+    objectives: [{ type: 'counter', key: 'civ:era', count: 2, label: '청동 시대' }],
+    rewards: { xp: 500 },
+  },
+  {
+    id: 'c_tax', title: '마을 금고', chain: 'side', requires: ['c_research'],
+    summary: '세금을 걷어 금고를 채우자.',
+    description: '"화폐"를 연구하면 [L] 문명 창에서 세율을 정할 수 있다. 세금은 매일 아침 주민 수만큼 걷히지만, 세율이 높을수록 주민 행복도가 떨어진다.',
+    objectives: [{ type: 'counter', key: 'tax:collected', count: 20, label: '걷은 세금' }],
+    rewards: { xp: 200 },
+  },
+  {
+    id: 'c_chain', title: '장인의 사슬', chain: 'side', requires: ['c_bronze'],
+    summary: '광부 → 제련공 → 대장장이로 도구 꾸러미를 만들자.',
+    description: '제재소의 목수가 판자를, 용광로의 제련공이 구리 주괴를 만들면 대장간의 대장장이가 도구 꾸러미를 만든다. 창고에 도구 꾸러미가 있으면 농부·나무꾼·광부가 더 많이 생산한다.',
+    objectives: [{ type: 'counter', key: 'village:tool_kit', count: 1, label: '마을에서 만든 도구 꾸러미' }],
+    rewards: { xp: 400, items: [{ item: 'tool_kit', qty: 2 }] },
+  },
+  {
+    id: 'c_defend', title: '마을 수비대', chain: 'main', requires: ['v_village'],
+    summary: '밤의 습격을 막아내자.',
+    description: '"마을" 단계가 되면 이따금 괴물 무리가 밤 22시에 마을을 습격한다(아침에 예고됨). 괴물들은 주민과 창고를 노린다. 직접 싸우거나, "민병대"를 연구해 경비병을 두고, 궁수탑을 세워 마을을 지키자.',
+    objectives: [{ type: 'counter', key: 'raid:repelled', count: 1, label: '막아낸 습격' }],
+    rewards: { xp: 400, items: [{ item: 'health_potion', qty: 2 }] },
+  },
+  {
+    id: 'c_town', title: '소도시', chain: 'main', requires: ['c_bronze', 'v_town'],
+    summary: '마을을 소도시로 키우자.',
+    description: '주민 14명, 청동 시대, 경비 초소, 행복도 55 이상이면 "소도시"가 되고 정착지 반경이 60m로 넓어진다. 목조·석조 주택으로 많은 주민을 들이자.',
+    objectives: [{ type: 'counter', key: 'village:tier', count: 4, label: '소도시 단계' }],
+    rewards: { xp: 900 },
+  },
+  {
+    id: 'c_kingdom', title: '왕국의 기틀', chain: 'main', requires: ['c_bronze'],
+    summary: '청동 시대 기술 3개를 익히고 왕국 시대로 나아가자.',
+    description: '청동 시대 기술 세 가지를 연구하면 "왕국의 기틀"이 열린다. 왕국 시대에는 축성술, 도시 건축, 행정을 연구할 수 있다.',
+    objectives: [{ type: 'counter', key: 'civ:era', count: 3, label: '왕국 시대' }],
+    rewards: { xp: 900 },
+  },
+  {
+    id: 'c_city', title: '빛나는 도시', chain: 'main', requires: ['c_town', 'c_kingdom'],
+    summary: '소도시를 도시로 발전시키자.',
+    description: '주민 22명, 왕국 시대, "행정" 연구, 분수 광장, 행복도 60 이상이면 "도시"가 된다. 섬의 문명이 꽃핀다.',
+    objectives: [{ type: 'counter', key: 'village:tier', count: 5, label: '도시 단계' }],
+    rewards: { xp: 1500 },
+  },
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

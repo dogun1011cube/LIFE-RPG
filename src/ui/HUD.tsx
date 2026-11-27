@@ -489,6 +489,9 @@ function KeyHints() {
         <kbd>H</kbd>마을
       </span>
       <span>
+        <kbd>L</kbd>문명
+      </span>
+      <span>
         <kbd>Esc</kbd>메뉴
       </span>
     </div>
@@ -506,6 +509,8 @@ export function HUD() {
       <StatusPanel />
       <Minimap />
       <QuestTracker />
+      {game.defense.active && <div className="raid-alert">⚔ 습격 중 · 남은 괴물 {game.defense.remaining()}</div>}
+      {!game.defense.active && game.state.settlement.raid.tonight && <div className="raid-alert soon">⚠ 오늘 밤 22시 마을 습격 예정</div>}
       <Notifications />
       <Banner />
       <BossBar />

@@ -133,7 +133,7 @@ export function drawWorldMap(ctx: CanvasRenderingContext2D, game: Game, cx: numb
     ctx.strokeStyle = 'rgba(127, 211, 106, 0.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(x, y, (45 / span) * W, 0, Math.PI * 2);
+    ctx.arc(x, y, (game.settlement.radius() / span) * W, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = '#7fd36a';
     ctx.strokeStyle = '#1a140a';

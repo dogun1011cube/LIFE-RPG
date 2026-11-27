@@ -468,3 +468,43 @@ kbd {
 .villager-panel { width: min(440px, 92vw); }
 .villager-quote { font-style: italic; color: #f1e6c8; background: rgba(255, 255, 255, 0.04); border-left: 2px solid var(--gold); padding: 8px 12px; border-radius: 4px; }
 .job-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── PHASE 5: civilisation tab, raid alerts ─────────────── */
+.raid-alert { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); padding: 5px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #ffd8d0; background: rgba(140, 30, 20, 0.75); border: 1px solid rgba(255, 110, 90, 0.6); animation: raidPulse 1.2s ease-in-out infinite; text-align: center; }
+.raid-alert.soon { color: #ffe9b8; background: rgba(110, 70, 10, 0.7); border-color: rgba(233, 196, 106, 0.6); animation: none; }
+@keyframes raidPulse { 50% { box-shadow: 0 0 14px rgba(255, 90, 70, 0.7); } }
+.civ-layout { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+.civ-head { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line-soft); padding-bottom: 10px; }
+.civ-head .qd-title { font-size: 20px; }
+.civ-head .rp { color: #8ad0ff; font-size: 18px; }
+.coin-text { color: #d8dde4; }
+.civ-body { display: grid; grid-template-columns: 1fr 290px; gap: 16px; flex: 1; overflow: hidden; }
+.tech-tree { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; overflow: auto; padding-right: 4px; }
+.era-col { display: flex; flex-direction: column; gap: 7px; }
+.era-col.future { opacity: 0.55; }
+.tech-card { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line-soft); font-size: 13px; }
+.tech-card.available { border-color: rgba(138, 208, 255, 0.45); background: rgba(80, 140, 200, 0.08); }
+.tech-card.done { border-color: rgba(127, 211, 106, 0.45); background: rgba(127, 211, 106, 0.07); }
+.tech-card.done b { color: var(--good); }
+.tech-card.locked { opacity: 0.7; }
+.tech-card.era-tech { border-style: dashed; border-color: var(--gold-dim); }
+.tech-card.era-tech.available { border-color: var(--gold); background: rgba(217, 181, 110, 0.1); }
+.tech-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.tech-cost { font-size: 11px; color: #8ad0ff; white-space: nowrap; }
+.tech-effects { margin: 2px 0 0 16px; padding: 0; font-size: 12px; color: #e8dcc0; }
+.tech-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 4px; }
+.tech-foot .good, .civ-side .good { color: var(--good); }
+.civ-side .bad { color: var(--bad); }
+.civ-side .warn-text { color: #e9c46a; }
+.civ-side { overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.fin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.fin-row.total { border-top: 1px solid var(--line-soft); padding-top: 5px; }
+.donate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.donate-item { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 6px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-soft); cursor: pointer; font-size: 11px; font-weight: 700; }
+.donate-item small { color: #8ad0ff; font-weight: 600; }
+.donate-item:hover { border-color: var(--gold); }
+.donate-item.empty { opacity: 0.45; cursor: default; }
+@media (max-width: 900px) {
+  .civ-body { grid-template-columns: 1fr; overflow: auto; }
+  .tech-tree { grid-template-columns: 1fr; overflow: visible; }
+}

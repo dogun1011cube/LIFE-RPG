@@ -69,6 +69,8 @@ export const FOOD_VALUE: Record<string, number> = { bread: 2, cooked_meat: 2, be
 export const FIRST_NAMES = [
   '하린', '도윤', '서아', '지호', '민준', '예린', '건우', '소율', '태오', '나은', '시우', '하윤', '이준', '아린', '로하', '유나',
   '세진', '다온', '한결', '보람', '채원', '은호', '가람', '새봄',
+  '라온', '미르', '누리', '하람', '단비', '솔이', '바다', '이안', '서준', '지안', '윤슬', '해솔', '도하', '연우', '초아', '시온',
+  '강비', '나래', '별하', '온유', '루다', '여름', '겨울', '아토',
 ];
 
 /** Market: what the merchant sells (price in coins) and the sell multiplier for player goods. */

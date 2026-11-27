@@ -14,6 +14,7 @@ import { SKILLS, TREE_INFO, SKILL_KEY_LABELS, type SkillTree } from '../../game/
 import { rank } from '../../game/systems/Stats';
 import { DUNGEON_ORIGIN } from '../../game/world/Dungeon';
 import { JOBS, JOB_ORDER, TIERS, MARKET_STOCK, FOOD_VALUE, type JobId } from '../../game/data/village';
+import { CivTab } from './CivTab';
 
 const TABS: { id: MenuTab; name: string; key: string }[] = [
   { id: 'inventory', name: '인벤토리', key: 'Tab' },
@@ -22,6 +23,7 @@ const TABS: { id: MenuTab; name: string; key: string }[] = [
   { id: 'quests', name: '퀘스트', key: 'J' },
   { id: 'map', name: '지도', key: 'M' },
   { id: 'village', name: '마을', key: 'H' },
+  { id: 'civ', name: '문명', key: 'L' },
 ];
 
 export function MenuShell() {
@@ -50,6 +52,7 @@ export function MenuShell() {
           {tab === 'quests' && <QuestsTab />}
           {tab === 'map' && <MapTab />}
           {tab === 'village' && <VillageTab />}
+          {tab === 'civ' && <CivTab />}
         </div>
       </div>
     </div>
@@ -634,7 +637,7 @@ function VillageTab() {
         <div className="qd-title">정착지가 아직 없습니다</div>
         <p className="qd-desc">
           {known
-            ? '[B] 건축 모드의 "마을" 분류에서 마을 회관을 지으면 정착지가 세워집니다. 회관 반경 45m 안에 침대를 놓으면 주민이 찾아옵니다.'
+            ? '[B] 건축 모드의 "마을" 분류에서 마을 회관을 지으면 정착지가 세워집니다. 회관 반경 45m 안에 침대나 주택을 놓으면 주민이 찾아옵니다.'
             : '먼저 메인 퀘스트 "나만의 보금자리"를 완료해 집을 지으면 마을 회관을 지을 수 있게 됩니다.'}
         </p>
         <div className="req-title">성장 단계</div>
@@ -647,7 +650,7 @@ function VillageTab() {
     );
   }
   const cap = S.capacity();
-  const beds = S.beds().length;
+  const beds = S.homeSlots().length;
   const food = S.foodStock();
   const avg = S.averageHappiness();
   const used = S.warehouseUsed();
@@ -661,7 +664,7 @@ function VillageTab() {
         <div>
           <div className="qd-title">{st.name}</div>
           <div className="muted small">
-            {S.tierName()} · 주민 {st.villagers.length}/{cap} (침대 {beds}) · 은화 {S.coins()}
+            {S.tierName()} · 주민 {st.villagers.length}/{cap} (거처 {beds}) · 반경 {S.radius()}m · 금고 {st.treasury} 은화
           </div>
         </div>
         <div className="vstat">
@@ -691,7 +694,7 @@ function VillageTab() {
       <div className="village-cols">
         <div className="vcol">
           <div className="list-head">주민</div>
-          {st.villagers.length === 0 && <p className="muted small">아직 주민이 없습니다. 빈 침대와 창고의 음식이 있으면 여행자가 찾아옵니다.</p>}
+          {st.villagers.length === 0 && <p className="muted small">아직 주민이 없습니다. 빈 침대(또는 주택)와 창고의 음식이 있으면 여행자가 찾아옵니다.</p>}
           {st.villagers.map((v) => (
             <div key={v.id} className="villager-row">
               <span className="vmood" title={`행복도 ${Math.round(v.happiness)}`}>
@@ -699,7 +702,7 @@ function VillageTab() {
               </span>
               <div className="vinfo">
                 <b>{v.name}</b>
-                <small>
+                <small className={v.down ? 'bad' : ''}>
                   {game.villagers.activityOf(v.id)}
                   {v.homeId === null ? ' · 집 없음' : ''}
                   {!v.fed ? ' · 굶주림' : ''}

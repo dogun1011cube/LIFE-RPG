@@ -216,6 +216,27 @@ function shapeSvg(shape: string, c1: string, c2: string): ReactElement {
           <path d="M16 21 L20 27 M23 19 L27 26 M30 20 L33 26" stroke={c2} strokeWidth="2.5" strokeLinecap="round" />
         </g>
       );
+    case 'plank':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <path d="M6 30 L30 12 L42 18 L18 36 Z" fill={c1} />
+          <path d="M6 30 L18 36 V40 L6 34 Z" fill={c2} />
+          <path d="M18 36 L42 18 V22 L18 40 Z" fill={c2} opacity="0.85" />
+          <path d="M12 29 L32 15 M17 32 L37 18" stroke="rgba(90,50,20,0.45)" />
+        </g>
+      );
+    case 'toolkit':
+      return (
+        <g stroke={stroke} strokeWidth="1.3">
+          <rect x="8" y="24" width="32" height="16" rx="2" fill={c2} />
+          <path d="M8 28 H40" stroke="rgba(0,0,0,0.3)" />
+          <path d="M18 24 V18 H30 V24" fill="none" strokeWidth="2.5" />
+          <path d="M14 22 L22 8" stroke="#7a5230" strokeWidth="3" strokeLinecap="round" />
+          <path d="M18 7 L26 10 L24 14 L17 11 Z" fill={c1} />
+          <path d="M34 22 L30 9" stroke="#7a5230" strokeWidth="3" strokeLinecap="round" />
+          <path d="M25 9 L35 7 L35 11 Z" fill={c1} />
+        </g>
+      );
     case 'brick':
       return (
         <g stroke={stroke} strokeWidth="1.3">
@@ -618,6 +639,109 @@ export function BuildIcon({ shape, material, size = 40 }: { shape: BuildShape; m
           <ellipse cx="24" cy="30" rx="14" ry="5" fill="#7d776c" />
           <rect x="10" y="30" width="28" height="12" fill="#9a948a" />
           <ellipse cx="24" cy="30" rx="10" ry="3" fill="#2a5a7a" />
+        </g>
+      );
+      break;
+    case 'research_desk':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <rect x="8" y="6" width="32" height="18" fill="#6a4426" />
+          <rect x="10" y="9" width="28" height="5" fill="#7a3a2a" />
+          <rect x="10" y="16" width="18" height="5" fill="#2c4a8a" />
+          <rect x="6" y="26" width="36" height="5" fill={main} />
+          <rect x="9" y="31" width="3" height="11" fill={dark} />
+          <rect x="36" y="31" width="3" height="11" fill={dark} />
+          <path d="M16 26 L24 23 L32 26" fill="#e8dcc0" />
+          <circle cx="36" cy="22" r="1.8" fill="#ffd28a" />
+        </g>
+      );
+      break;
+    case 'sawmill':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M4 12 L44 8 L44 12 L4 16 Z" fill="#9a4a2e" />
+          <rect x="6" y="14" width="2.5" height="28" fill="#6a4426" />
+          <rect x="39.5" y="12" width="2.5" height="30" fill="#6a4426" />
+          <rect x="14" y="30" width="22" height="4" fill={main} />
+          <circle cx="25" cy="27" r="7" fill="#9a9aa2" />
+          <circle cx="25" cy="27" r="1.5" fill="#3a3a40" />
+          <circle cx="10" cy="38" r="3.5" fill="#6a4426" />
+          <circle cx="16" cy="38" r="3.5" fill="#6a4426" />
+        </g>
+      );
+      break;
+    case 'smelter':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <rect x="20" y="2" width="8" height="12" fill="#6f6a62" />
+          <path d="M14 14 H34 L40 22 H8 Z" fill="#7a756c" />
+          <rect x="8" y="22" width="32" height="20" fill="#a7a196" />
+          <rect x="18" y="30" width="12" height="9" fill="#ff8a3a" />
+          <path d="M21 39 Q24 31 27 39" fill="#ffd27a" stroke="none" />
+        </g>
+      );
+      break;
+    case 'smithy':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M4 14 L44 8 V12 L4 18 Z" fill="#9a4a2e" />
+          <rect x="6" y="16" width="2.5" height="26" fill="#6a4426" />
+          <rect x="39.5" y="12" width="2.5" height="30" fill="#6a4426" />
+          <path d="M16 30 H34 L32 34 H18 Z" fill="#3a3a40" />
+          <rect x="21" y="34" width="8" height="8" fill="#6a4426" />
+          <path d="M34 30 L40 31 L34 33 Z" fill="#3a3a40" />
+          <rect x="10" y="24" width="6" height="6" fill="#ff8a3a" />
+        </g>
+      );
+      break;
+    case 'guard_post':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M10 10 L24 3 L38 10 Z" fill="#9a4a2e" />
+          <rect x="12" y="10" width="2.5" height="32" fill="#6a4426" />
+          <rect x="33.5" y="10" width="2.5" height="32" fill="#6a4426" />
+          <rect x="10" y="20" width="28" height="4" fill={main} />
+          <rect x="12" y="15" width="24" height="5" fill={main} opacity="0.8" />
+          <path d="M38 12 h7 v9 h-7 Z" fill="#2c4a8a" />
+          <path d="M20 26 V42 M24 26 V42 M20 30 H24 M20 35 H24" stroke="#6a4426" strokeWidth="1.5" />
+        </g>
+      );
+      break;
+    case 'archer_tower':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M12 9 L24 1 L36 9 Z" fill="#9a4a2e" />
+          <rect x="10" y="11" width="28" height="5" fill="#6a4426" />
+          <rect x="15" y="16" width="18" height="18" fill={main} />
+          <rect x="13" y="34" width="22" height="8" fill="#a7a196" />
+          <rect x="23" y="20" width="2" height="7" fill="#ffb35a" />
+          <path d="M6 22 L14 18" stroke="#e8dcb8" strokeWidth="1.5" />
+        </g>
+      );
+      break;
+    case 'house_wood':
+    case 'house_stone':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <path d="M5 22 L24 7 L43 22 Z" fill="#9a4a2e" />
+          <rect x="9" y="22" width="30" height="20" fill={shape === 'house_stone' ? '#a7a196' : '#e6dcc6'} />
+          <rect x="21" y="30" width="7" height="12" fill="#6a4426" />
+          <rect x="12" y="27" width="6" height="6" fill="#ffb35a" />
+          <rect x="31" y="27" width="6" height="6" fill="#ffb35a" />
+          {shape === 'house_stone' && <rect x="9" y="14" width="30" height="8" fill="#a7a196" opacity="0.9" />}
+          <rect x="31" y="9" width="4" height="8" fill="#6f6a62" />
+        </g>
+      );
+      break;
+    case 'fountain':
+      body = (
+        <g stroke={s} strokeWidth="1.2">
+          <ellipse cx="24" cy="36" rx="19" ry="6" fill="#ece6da" />
+          <ellipse cx="24" cy="34" rx="15" ry="4" fill="#3a8ab0" />
+          <rect x="21" y="16" width="6" height="18" fill="#ece6da" />
+          <ellipse cx="24" cy="16" rx="9" ry="3" fill="#ece6da" />
+          <path d="M24 12 Q16 14 14 30 M24 12 Q32 14 34 30" fill="none" stroke="#9fd6f0" strokeWidth="1.5" />
+          <circle cx="24" cy="11" r="2.5" fill="#c9a45c" />
         </g>
       );
       break;
